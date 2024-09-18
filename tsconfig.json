@@ -1,0 +1,19 @@
+{
+  "compilerOptions": {
+    "outDir": "dist", // 输出目录
+    "sourceMap": true, //采用sourcemap
+    "target": "es2016", //目标语法
+    "strict": false, //严格模式
+    "module": "ESNext", // 模块化
+    "moduleResolution": "Node", // 模块解析
+    "resolveJsonModule": true,
+    "esModuleInterop": true,
+    "jsx": "preserve",
+    "lib": ["ESNext", "DOM"],
+    "baseUrl": ".", // 根地址为当前目录
+    "paths":{
+      "@vue/*": ["packages/*/src"] // 别名替换
+    },
+
+  }
+}
