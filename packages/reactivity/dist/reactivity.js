@@ -6,11 +6,20 @@ function effect(fn, options) {
   _effect.run();
 }
 var activeEffect;
+function preCleanEffect(effect2) {
+  effect2._depslength = 0;
+  effect2._trackId++;
+}
 var ReactiveEffect = class {
   // fn 用户编写的函数
   constructor(fn, scheduler) {
     this.fn = fn;
     this.scheduler = scheduler;
+    this._trackId = 0;
+    // 记录当前effect执行了多少次
+    this._depslength = 0;
+    this.deps = [];
+    // 依赖的集合
     // 默认开启响应式
     this.active = true;
   }
@@ -20,13 +29,26 @@ var ReactiveEffect = class {
     }
     try {
       activeEffect = this;
+      preCleanEffect(this);
       return this.fn();
     } finally {
       activeEffect = void 0;
     }
   }
 };
-function trackEffect2(activeEffect2, dep) {
+function trackEffect(effect2, dep) {
+  if (dep.get(effect2) != effect2._trackId) {
+    dep.set(effect2, effect2._trackId);
+  }
+  dep.set(effect2, effect2._trackId);
+  effect2.deps[effect2._depslength++] = dep;
+}
+function triggerEffect(dep) {
+  for (const effect2 of dep.keys()) {
+    if (effect2.scheduler) {
+      effect2.scheduler();
+    }
+  }
 }
 
 // packages/share/src/index.ts
@@ -56,6 +78,16 @@ function track(target, key) {
     console.log(targetMap);
   }
 }
+function trigger(target, key, newValue, oldValue) {
+  const depsMap = targetMap.get(target);
+  if (!depsMap) {
+    return;
+  }
+  const dep = depsMap.get(key);
+  if (dep) {
+    triggerEffect(dep);
+  }
+}
 
 // packages/reactivity/src/baseHandler.ts
 var mutableHandlers = {
@@ -65,7 +97,12 @@ var mutableHandlers = {
     return Reflect.get(target, key, receiver);
   },
   set(target, key, value, receiver) {
-    return Reflect.set(target, key, value, receiver);
+    const oldValue = target[key];
+    let reseult = Reflect.set(target, key, value, receiver);
+    if (oldValue != value) {
+      trigger(target, key, value, oldValue);
+    }
+    return reseult;
   }
 };
 
@@ -91,6 +128,7 @@ export {
   activeEffect,
   effect,
   reactive,
-  trackEffect2 as trackEffect
+  trackEffect,
+  triggerEffect
 };
 //# sourceMappingURL=reactivity.js.map
