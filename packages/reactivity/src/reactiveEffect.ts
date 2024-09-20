@@ -1,9 +1,8 @@
 import { activeEffect, trackEffect, triggerEffect } from "./effect"
 
-// TODO: 在vue.js设计与实现中是 weakmap map set.视频教程中最后是map,解决?
+
 // vue3.4之前是用set,之后为了进行清理操作,改成了effect
 // 用来创建 key和effect的依赖关系,并可以清理不需要的属性
-
 /**
  * 创建收集器 映射属性和副作用函数的容器
  * @param cleanup 清理函数，可以将这个属性对应的清除掉
@@ -35,7 +34,6 @@ export function track(target, key) {
         }
         // 将effect和收集器关联起来
         trackEffect(activeEffect,dep)
-        console.log(targetMap)
     }
 }
 

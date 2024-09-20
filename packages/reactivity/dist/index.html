@@ -16,11 +16,11 @@
         const obj = { name: "大家啊科技", age: 12 }
         const state = reactive(obj)
         effect(() => {
-            document.querySelector(".box").innerHTML = `name: ${state.name},age: ${state.age}`
+            document.querySelector(".box").innerHTML = state.name + state.name + state.name
         })
-        setTimeout(() => [
-            state.age++
-        ], 3000)
+        // setTimeout(() => [
+        //     state.age++
+        // ], 3000)
 
     </script>
 </body>
