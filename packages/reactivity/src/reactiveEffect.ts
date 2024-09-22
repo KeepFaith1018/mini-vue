@@ -34,6 +34,8 @@ export function track(target, key) {
         }
         // 将effect和收集器关联起来
         trackEffect(activeEffect,dep)
+        console.log(targetMap);
+        
     }
 }
 

@@ -13,15 +13,22 @@
     </div>
     <script type="module">
         import { effect, reactive } from "./reactivity.js";
-        const obj = { name: "大家啊科技", age: 12 }
+        const obj = {
+            name: "大家啊科技", age: 12, flag: true
+        }
         const state = reactive(obj)
-        effect(() => {
-            document.querySelector(".box").innerHTML = state.name + state.name + state.name
+        const runner = effect(() => {
+            document.querySelector(".box").innerHTML = state.flag ? state.name : state.age
+        }, {
+            scheduler: () => {
+                console.log("数据更新了，执行自己的逻辑");
+                console.log("调用run方法,手动更新");
+                runner();
+            }
         })
-        // setTimeout(() => [
-        //     state.age++
-        // ], 3000)
-
+        setTimeout(() => {
+            state.flag = false;
+        }, 10000)
     </script>
 </body>
 
