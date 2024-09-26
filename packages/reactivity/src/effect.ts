@@ -1,3 +1,5 @@
+import { DirtyLevels } from "./constants";
+
 // 提供一个函数来记录副作用函数
 export function effect(fn, options?) {
   const _effect = new ReactiveEffect(fn, () => {
@@ -28,18 +30,25 @@ function postCleanEffect(effect) {
     effect.deps.length = effect._depslength;
   }
 }
-class ReactiveEffect {
+export class ReactiveEffect {
   _trackId = 0; // 记录当前effect执行了多少次
   _depslength = 0;
   _running = 0;
+  _dirtyLevel = DirtyLevels.Dirty;
   deps: any[] = []; // 依赖的集合
 
   // 默认开启响应式
   public active: boolean = true;
   // fn 用户编写的函数
   constructor(public fn, public scheduler) {}
-
+  public get dirty() {
+    return this._dirtyLevel === DirtyLevels.Dirty;
+  }
+  public set dirty(v) {
+    this._dirtyLevel = v ? DirtyLevels.Dirty : DirtyLevels.NoDirty;
+  }
   run() {
+    this._dirtyLevel = DirtyLevels.NoDirty; // 每次运行后，变为不是脏值
     if (!this.active) {
       // 不是激活的,执行后什么都不做
       return this.fn();
@@ -99,6 +108,13 @@ export function trackEffect(effect, dep: any) {
  */
 export function triggerEffect(dep) {
   for (const effect of dep.keys()) {
+    // 如果不是脏值，触发更新需要将值变为脏值
+
+    // 属性依赖了计算属性，需要让计算属性的dirty在变为true
+    if (effect._dirtyLevel < DirtyLevels.Dirty) {
+      effect._dirtyLevel = DirtyLevels.Dirty;
+    }
+
     if (effect.scheduler) {
       if (!effect.running) {
         // 如果不是正在执行，则执行

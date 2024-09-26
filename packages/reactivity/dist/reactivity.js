@@ -33,12 +33,20 @@ var ReactiveEffect = class {
     // 记录当前effect执行了多少次
     this._depslength = 0;
     this._running = 0;
+    this._dirtyLevel = 4 /* Dirty */;
     this.deps = [];
     // 依赖的集合
     // 默认开启响应式
     this.active = true;
   }
+  get dirty() {
+    return this._dirtyLevel === 4 /* Dirty */;
+  }
+  set dirty(v) {
+    this._dirtyLevel = v ? 4 /* Dirty */ : 0 /* NoDirty */;
+  }
   run() {
+    this._dirtyLevel = 0 /* NoDirty */;
     if (!this.active) {
       return this.fn();
     }
@@ -77,6 +85,9 @@ function trackEffect(effect2, dep) {
 }
 function triggerEffect(dep) {
   for (const effect2 of dep.keys()) {
+    if (effect2._dirtyLevel < 4 /* Dirty */) {
+      effect2._dirtyLevel = 4 /* Dirty */;
+    }
     if (effect2.scheduler) {
       if (!effect2.running) {
         effect2.scheduler();
@@ -249,6 +260,7 @@ function proxyRefs(object) {
   });
 }
 export {
+  ReactiveEffect,
   activeEffect,
   effect,
   proxyRefs,
@@ -258,6 +270,8 @@ export {
   toRef,
   toRefs,
   trackEffect,
-  triggerEffect
+  trackRefValue,
+  triggerEffect,
+  triggerRefValue
 };
 //# sourceMappingURL=reactivity.js.map

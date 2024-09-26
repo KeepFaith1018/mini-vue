@@ -1,7 +1,7 @@
 import { isObject } from "@vue/share";
 import { track, trigger } from "./reactiveEffect";
 import { reactive } from "./reactive";
-import { ReactiveFlags } from "./contants";
+import { ReactiveFlags } from "./constants";
 
 // 响应式对象proxy的处理handler
 export const mutableHandlers: ProxyHandler<any> = {
