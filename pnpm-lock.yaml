@@ -24,6 +24,15 @@ importers:
         specifier: workspace:^
         version: link:../share
 
+  packages/runtime-dom:
+    dependencies:
+      '@vue/reactivity':
+        specifier: workspace:^
+        version: link:../reactivity
+      '@vue/share':
+        specifier: workspace:^
+        version: link:../share
+
   packages/share: {}
 
 packages:
