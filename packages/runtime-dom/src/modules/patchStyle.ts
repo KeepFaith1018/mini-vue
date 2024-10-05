@@ -7,7 +7,7 @@ export function patchStyle(el: HTMLElement, preValue, nextValue) {
   // 旧样式冗余删除
   if (preValue) {
     for (let key in preValue) {
-      if (nextValue[key] == null) {
+      if (!(key in nextValue)) {
         style[key] = null;
       }
     }

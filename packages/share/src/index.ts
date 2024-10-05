@@ -5,3 +5,8 @@ export function isObject(object: any) {
 export function isFunction(fn: any) {
   return typeof fn === "function";
 }
+
+export function isString(str: any) {
+  return typeof str === "string";
+}
+export * from "./shapeFlags";

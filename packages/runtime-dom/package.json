@@ -14,7 +14,6 @@
         ]
     },
     "dependencies": {
-        "@vue/share": "workspace:^",
-        "@vue/reactivity": "workspace:^"
+        "@vue/runtime-core": "workspace:^"
     }
 }

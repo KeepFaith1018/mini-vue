@@ -5,16 +5,72 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Document</title>
-    <div style="color: aliceblue; width: 10px;" class="box">
-        ceshi
+    <div>需要插入的测试用例</div>
+    <div class="add">
     </div>
+    <div>需要删除的测试用例</div>
+    <div class="delete">
+    </div>
+    <div>需要特殊处理的测试用例</div>
+    <div class="unknow">
+    </div>
+
 </head>
 
 <body>
-    <script>
-        const dom = document.querySelector("div")
-        console.dir(dom);
+    <script type="module">
+        import { render, h } from './runtime-dom.js'
+        // add
+        // const container = document.querySelector('.add')
+        // render(h('div', {}, [
+        //     h('div', { key: 'a' }, 'A'),
+        //     h('div', { key: 'b' }, 'B'),
+        //     h('div', { key: 'c' }, 'C')
+        // ]), container);
+        // render(h('div', {}, [
+        //     h('div', { key: 'a' }, 'A'),
+        //     h('div', { key: 'b' }, 'B'),
+        //     h('div', { key: 'c' }, 'C'),
+        //     h('div', { key: 'd' }, 'D')
+        // ]), container);
 
+        // // delete
+        // const container2 = document.querySelector('.delete')
+        // render(h('div', {}, [
+        //     h('div', { key: 'a' }, 'A'),
+        //     h('div', { key: 'b' }, 'B'),
+        //     h('div', { key: 'c' }, 'C'),
+        //     h('div', { key: 'd' }, 'D')
+        // ]), container2);
+        // render(h('div', {}, [
+        //     h('div', { key: 'a' }, 'A'),
+        //     h('div', { key: 'b' }, 'B'),
+        //     h('div', { key: 'c' }, 'C')
+
+        // ]), container2);
+
+
+        // 特殊处理
+        const container3 = document.querySelector('.unknow')
+        render(h('div', {}, [
+            h('div', { key: 'a' }, 'A'),
+            h('div', { key: 'b' }, 'B'),
+            h('div', { key: 'c' }, 'C'),
+            h('div', { key: 'd' }, 'D'),
+            h('div', { key: 'e' }, 'E'),
+            h('div', { key: 'f' }, 'F'),
+            h('div', { key: 'g' }, 'G'),
+        ]), container3);
+        render(h('div', {}, [
+            h('div', { key: 'a' }, 'A'),
+            h('div', { key: 'b' }, 'B'),
+            h('div', { key: 'e' }, 'E'),
+            h('div', { key: 'c' }, 'C'),
+            h('div', { key: 'd' }, 'D'),
+            h('div', { key: 'h' }, 'H'),
+            h('div', { key: 'f' }, 'F'),
+            h('div', { key: 'g' }, 'G')
+        ]), container3);
     </script>
 </body>
 
