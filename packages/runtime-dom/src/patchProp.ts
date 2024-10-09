@@ -6,7 +6,7 @@ import { patchEvent } from "./modules/patchEvent";
 import { patchStyle } from "./modules/patchStyle";
 
 /**
- * 处理属性
+ * 处理属性，更新旧dom上的属性，为新值
  * @param el 真实dom
  * @param key 属性名 class style event
  * @param preValue old

@@ -1,8 +1,10 @@
 // 对节点元素的增删改查操作
 export const nodeOps = {
   /**
-   *  插入节点
-   *  如果有anchor则在anchor之前插入，没有则在最后插入
+   * 插入元素
+   * @param el  真实节点
+   * @param parent  父节点
+   * @param anchor  插入的位置，没有则在末尾插入
    */
   insert(el, parent, anchor = null) {
     parent.insertBefore(el, anchor);

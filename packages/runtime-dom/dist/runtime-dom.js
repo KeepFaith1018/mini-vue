@@ -305,6 +305,8 @@ function computed(getterOrOptions) {
 }
 
 // packages/runtime-core/src/createVnode.ts
+var Text = Symbol("Text");
+var Fragment = Symbol("Fragment");
 function isSameVnode(n1, n2) {
   return n1.type === n2.type && n1.key === n2.key;
 }
@@ -358,6 +360,46 @@ function h(type, propsOrChildren, children) {
   }
 }
 
+// packages/runtime-core/src/seq.ts
+function getSequence(arr) {
+  const length = arr.length;
+  const result = [0];
+  const p = result.slice(0);
+  let start, end, middle;
+  for (let i = 0; i < length; i++) {
+    let arrI = arr[i];
+    if (arrI !== 0) {
+      const lastIndex = result[result.length - 1];
+      if (arrI > arr[lastIndex]) {
+        p[i] = result[result.length - 1];
+        result.push(i);
+        continue;
+      }
+      start = 0;
+      end = result.length - 1;
+      while (start < end) {
+        middle = (start + end) / 2 | 0;
+        if (arr[result[middle]] < arrI) {
+          start = middle + 1;
+        } else {
+          end = middle;
+        }
+      }
+      if (arrI < arr[result[start]]) {
+        p[i] = result[start - 1];
+        result[start] = i;
+      }
+    }
+  }
+  let l = result.length;
+  let last = result[l - 1];
+  while (l-- > 0) {
+    result[l] = last;
+    last = p[last];
+  }
+  return result;
+}
+
 // packages/runtime-core/src/renderer.ts
 function createRenderer(renderOptions2) {
   const {
@@ -371,14 +413,6 @@ function createRenderer(renderOptions2) {
     parentNode: hostParentNode,
     nextSibling: hostNextSibling
   } = renderOptions2;
-  const mountChildren = (children, container) => {
-    for (let i = 0; i < children.length; i++) {
-      if (typeof children[i] === "string") {
-        children[i] = h("text", {}, children[i]);
-      }
-      patch(null, children[i], container);
-    }
-  };
   const mountElement = (vnode, container, anchor) => {
     const { type, children, props, shapeFlag } = vnode;
     let el = vnode.el = hostCreateElement(type);
@@ -394,21 +428,36 @@ function createRenderer(renderOptions2) {
     }
     hostInsert(el, container, anchor);
   };
+  const mountChildren = (children, container) => {
+    for (let i = 0; i < children.length; i++) {
+      if (typeof children[i] === "string") {
+        children[i] = h("text", {}, children[i]);
+      }
+      patch(null, children[i], container);
+    }
+  };
+  const processText = (oldVnode, newVnode, container) => {
+    if (oldVnode == null) {
+      hostInsert(newVnode.el = hostCreateText(newVnode.children), container);
+    } else {
+      const el = newVnode.el = oldVnode.el;
+      if (oldVnode.children !== newVnode.children) {
+        hostSetText(el, newVnode.children);
+      }
+    }
+  };
+  const processFragment = (oldVnode, newVnode, container) => {
+    if (oldVnode == null) {
+      mountChildren(newVnode.children, container);
+    } else {
+      patchChildren(oldVnode, newVnode, container);
+    }
+  };
   const processElement = (oldVode, newVnode, container, anchor) => {
     if (oldVode == null) {
       mountElement(newVnode, container, anchor);
     } else {
       patchElement(oldVode, newVnode, container);
-    }
-  };
-  const patchProps = (oldProps, newProps, el) => {
-    for (let key in newProps) {
-      hostPatchProp(el, key, oldProps[key], newProps[key]);
-    }
-    for (let key in oldProps) {
-      if (!(key in newProps)) {
-        hostPatchProp(el, key, oldProps[key], null);
-      }
     }
   };
   const unmountChildren = (children) => {
@@ -458,6 +507,8 @@ function createRenderer(renderOptions2) {
       let s1 = index;
       let s2 = index;
       const keyToNewIndexMap = /* @__PURE__ */ new Map();
+      let toBePatched = e2 - s2 + 1;
+      let newIndexToOldMapIndex = new Array(toBePatched).fill(0);
       for (let i = s2; i <= e2; i++) {
         keyToNewIndexMap.set(newChildren[i].key, i);
       }
@@ -467,21 +518,37 @@ function createRenderer(renderOptions2) {
         if (newIndex === void 0) {
           unmount(oldChild);
         } else {
-          console.log("\u66F4\u65B0\u8001\u5143\u7D20", oldChild);
+          newIndexToOldMapIndex[newIndex - s2] = i + 1;
           patch(oldChild, newChildren[newIndex], el);
         }
       }
-      let toBePatched = e2 - s2 + 1;
+      console.log(newIndexToOldMapIndex);
+      let increasingSequence = getSequence(newIndexToOldMapIndex);
+      console.log(increasingSequence);
+      let j = increasingSequence.length - 1;
       for (let i = toBePatched - 1; i >= 0; i--) {
         let newIndex = s2 + i;
         let anchor = newChildren[newIndex + 1]?.el;
         let vnode = newChildren[newIndex];
-        debugger;
         if (!vnode.el) {
           patch(null, vnode, el, anchor);
         } else {
-          hostInsert(vnode.el, el, anchor);
+          if (j == i) {
+            j--;
+          } else {
+            hostInsert(vnode.el, el, anchor);
+          }
         }
+      }
+    }
+  };
+  const patchProps = (oldProps, newProps, el) => {
+    for (let key in newProps) {
+      hostPatchProp(el, key, oldProps[key], newProps[key]);
+    }
+    for (let key in oldProps) {
+      if (!(key in newProps)) {
+        hostPatchProp(el, key, oldProps[key], null);
       }
     }
   };
@@ -527,9 +594,22 @@ function createRenderer(renderOptions2) {
       unmount(oldVnode);
       oldVnode = null;
     }
-    processElement(oldVnode, newVnode, container, anchor);
+    const { type } = newVnode;
+    switch (type) {
+      case Text:
+        processText(oldVnode, newVnode, container);
+        break;
+      case Fragment:
+        processFragment(oldVnode, newVnode, container);
+        break;
+      default:
+        processElement(oldVnode, newVnode, container, anchor);
+    }
   };
   const unmount = (vnode) => {
+    if (vnode.type == Fragment) {
+      unmountChildren(vnode.children);
+    }
     hostRemove(vnode.el);
   };
   const render2 = (vnode, container) => {
@@ -537,9 +617,10 @@ function createRenderer(renderOptions2) {
       if (container._vnode) {
         unmount(container._vnode);
       }
+    } else {
+      patch(container._vnode || null, vnode, container);
+      container._vnode = vnode;
     }
-    patch(container._vnode || null, vnode, container);
-    container._vnode = vnode;
   };
   return {
     render: render2
@@ -549,8 +630,10 @@ function createRenderer(renderOptions2) {
 // packages/runtime-dom/src/nodeOps.ts
 var nodeOps = {
   /**
-   *  插入节点
-   *  如果有anchor则在anchor之前插入，没有则在最后插入
+   * 插入元素
+   * @param el  真实节点
+   * @param parent  父节点
+   * @param anchor  插入的位置，没有则在末尾插入
    */
   insert(el, parent, anchor = null) {
     parent.insertBefore(el, anchor);
@@ -656,7 +739,9 @@ var render = (vnode, container) => {
   return createRenderer(renderOptions).render(vnode, container);
 };
 export {
+  Fragment,
   ReactiveEffect,
+  Text,
   activeEffect,
   computed,
   createRenderer,

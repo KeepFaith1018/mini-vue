@@ -52,6 +52,9 @@
 
         // 特殊处理
         const container3 = document.querySelector('.unknow')
+        const a = document.createElement('div')
+        container3.parentElement.insertBefore(a, container3.nextSibling);
+        container3.parentElement.insertBefore(a, container3.nextSibling);
         render(h('div', {}, [
             h('div', { key: 'a' }, 'A'),
             h('div', { key: 'b' }, 'B'),

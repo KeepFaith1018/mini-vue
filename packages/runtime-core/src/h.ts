@@ -7,6 +7,9 @@ import { createVnode, isVnode } from "./createVnode";
  * 两个参数
  *  1. type props  h('div',{class: "box"})
  *  2. type children  h('div',h('a'))
+ * 三个参数，或以上
+ *  1. type props children  h('div',{class: "box"},h('a'))
+ *  2. type props children1 children2
  */
 export function h(type, propsOrChildren?, children?) {
   let l = arguments.length;
@@ -20,6 +23,7 @@ export function h(type, propsOrChildren?, children?) {
         return createVnode(type, propsOrChildren, null);
       }
     }
+    // 子节点为文本 h('div','hello')
     return createVnode(type, null, [propsOrChildren]);
   } else {
     if (l > 3) {

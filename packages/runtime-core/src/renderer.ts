@@ -1,6 +1,7 @@
 import { ShapeFlags } from "@vue/share";
-import { isSameVnode } from "./createVnode";
+import { Text, isSameVnode, Fragment } from "./createVnode";
 import { h } from "./h";
+import { getSequence } from "./seq";
 export function createRenderer(renderOptions) {
   // core中不关心如何进行的渲染
   const {
@@ -14,17 +15,6 @@ export function createRenderer(renderOptions) {
     parentNode: hostParentNode,
     nextSibling: hostNextSibling,
   } = renderOptions;
-
-  const mountChildren = (children, container) => {
-    for (let i = 0; i < children.length; i++) {
-      if (typeof children[i] === "string") {
-        children[i] = h("text", {}, children[i]);
-      }
-
-      //TODO: children[i] 可能是纯文本元素
-      patch(null, children[i], container);
-    }
-  };
 
   /**
    * 将虚拟节点转化为真实dom挂载到真实dom上
@@ -52,25 +42,42 @@ export function createRenderer(renderOptions) {
     hostInsert(el, container, anchor);
   };
 
+  const mountChildren = (children, container) => {
+    for (let i = 0; i < children.length; i++) {
+      if (typeof children[i] === "string") {
+        children[i] = h("text", {}, children[i]);
+      }
+
+      //TODO: children[i] 可能是纯文本元素
+      patch(null, children[i], container);
+    }
+  };
+
+  const processText = (oldVnode, newVnode, container) => {
+    if (oldVnode == null) {
+      // 创建
+      hostInsert((newVnode.el = hostCreateText(newVnode.children)), container);
+    } else {
+      // 更新
+      const el = (newVnode.el = oldVnode.el);
+      if (oldVnode.children !== newVnode.children) {
+        hostSetText(el, newVnode.children);
+      }
+    }
+  };
+  const processFragment = (oldVnode, newVnode, container) => {
+    if (oldVnode == null) {
+      mountChildren(newVnode.children, container);
+    } else {
+      patchChildren(oldVnode, newVnode, container);
+    }
+  };
   const processElement = (oldVode, newVnode, container, anchor) => {
     if (oldVode == null) {
       // 初始化操作
       mountElement(newVnode, container, anchor);
     } else {
       patchElement(oldVode, newVnode, container);
-    }
-  };
-
-  const patchProps = (oldProps, newProps, el) => {
-    // 新的全部生效
-    for (let key in newProps) {
-      hostPatchProp(el, key, oldProps[key], newProps[key]);
-    }
-    // 从老的里面删除旧的
-    for (let key in oldProps) {
-      if (!(key in newProps)) {
-        hostPatchProp(el, key, oldProps[key], null);
-      }
     }
   };
 
@@ -150,8 +157,15 @@ export function createRenderer(renderOptions) {
       let s2 = index;
 
       const keyToNewIndexMap = new Map(); // 用映射表对比，有就复用更新，没有就删除
+      let toBePatched = e2 - s2 + 1; // 需要插入的个数
+      // 用新的节点做映射表，记录老的位置
+      // old [ab cde  fg]
+      // new [ab ecdh fg]    ecdn有四个元素，所以数组长度为4,e在旧数组中的索引为4，c为2，h没有，是新创建的，所以为0
+      // 以上面为例，得出结果为[4,2,3,0] 根据此，求出递增子序列，以最小的更改，实现更新
+      let newIndexToOldMapIndex = new Array(toBePatched).fill(0);
 
       // 将新的数组加入映射表
+      // 根据新的节点，找到老的对应位置
       for (let i = s2; i <= e2; i++) {
         keyToNewIndexMap.set(newChildren[i].key, i);
       }
@@ -165,28 +179,49 @@ export function createRenderer(renderOptions) {
           // 如果找不到，删除旧的
           unmount(oldChild);
         } else {
-          console.log("更新老元素", oldChild);
-
+          // i可能出现0的情况，通过+1来避免歧义，0代表新创建的，没有比对过的
+          newIndexToOldMapIndex[newIndex - s2] = i + 1;
           // 比较差异，更新属性和儿子
           patch(oldChild, newChildren[newIndex], el);
         }
       }
+      console.log(newIndexToOldMapIndex);
+
+      // 获得递归子序列
+      let increasingSequence = getSequence(newIndexToOldMapIndex);
+      console.log(increasingSequence);
+      let j = increasingSequence.length - 1;
       // 处理顺序问题
       // 以新的为基础，倒序插入
-      let toBePatched = e2 - s2 + 1; // 需要插入的个数
 
       for (let i = toBePatched - 1; i >= 0; i--) {
         let newIndex = s2 + i; // 要插入的元素索引
         let anchor = newChildren[newIndex + 1]?.el; // 插入参照物
         let vnode = newChildren[newIndex];
-        debugger;
 
         if (!vnode.el) {
           // 如果没有el,需要先创建一个,在插入
           patch(null, vnode, el, anchor);
         } else {
-          hostInsert(vnode.el, el, anchor);
+          if (j == i) {
+            j--;
+          } else {
+            hostInsert(vnode.el, el, anchor);
+          }
         }
+      }
+    }
+  };
+
+  const patchProps = (oldProps, newProps, el) => {
+    // 新的全部生效
+    for (let key in newProps) {
+      hostPatchProp(el, key, oldProps[key], newProps[key]);
+    }
+    // 从老的里面删除旧的
+    for (let key in oldProps) {
+      if (!(key in newProps)) {
+        hostPatchProp(el, key, oldProps[key], null);
       }
     }
   };
@@ -230,6 +265,7 @@ export function createRenderer(renderOptions) {
       }
     }
   };
+
   /**
    * 老的已经挂载了，拿到el，比较新旧虚拟节点更新el的属性和孩子即可
    * @param oldVNode 老的虚拟节点
@@ -256,13 +292,26 @@ export function createRenderer(renderOptions) {
       unmount(oldVnode);
       oldVnode = null; // 直接去除掉，去执行下面的逻辑
     }
-    processElement(oldVnode, newVnode, container, anchor);
+    const { type } = newVnode;
+    switch (type) {
+      case Text:
+        processText(oldVnode, newVnode, container);
+        break;
+      case Fragment:
+        processFragment(oldVnode, newVnode, container);
+        break;
+      default:
+        processElement(oldVnode, newVnode, container, anchor);
+    }
   };
   /**
    * 将虚拟节点从真实dom中删除
    * @param vnode 虚拟节点
    */
   const unmount = (vnode) => {
+    if (vnode.type == Fragment) {
+      unmountChildren(vnode.children);
+    }
     hostRemove(vnode.el);
   };
 
@@ -277,9 +326,10 @@ export function createRenderer(renderOptions) {
       if (container._vnode) {
         unmount(container._vnode);
       }
+    } else {
+      patch(container._vnode || null, vnode, container);
+      container._vnode = vnode;
     }
-    patch(container._vnode || null, vnode, container);
-    container._vnode = vnode;
   };
   return {
     render,

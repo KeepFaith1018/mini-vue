@@ -1,5 +1,6 @@
 import { isString, ShapeFlags } from "@vue/share";
-
+export const Text = Symbol("Text");
+export const Fragment = Symbol("Fragment");
 // 判断是否是相同的虚拟节点
 export function isSameVnode(n1, n2) {
   return n1.type === n2.type && n1.key === n2.key;
