@@ -30,6 +30,7 @@ function postCleanEffect(effect) {
     effect.deps.length = effect._depslength;
   }
 }
+
 export class ReactiveEffect {
   _trackId = 0; // 记录当前effect执行了多少次
   _depslength = 0;
@@ -39,7 +40,11 @@ export class ReactiveEffect {
 
   // 默认开启响应式
   public active: boolean = true;
-  // fn 用户编写的函数
+  /**
+   *
+   * @param fn 用户创建的副作用函数，执行时会收集依赖，依赖变更会重新执行
+   * @param scheduler 调度器，默认调用fn函数，也可以自定义处理逻辑
+   */
   constructor(public fn, public scheduler) {}
   public get dirty() {
     return this._dirtyLevel === DirtyLevels.Dirty;

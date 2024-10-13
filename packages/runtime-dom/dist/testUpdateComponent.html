@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <div class="app"></div>
+</head>
+
+<body>
+    <script type="module">
+        import { h, render, Fragment, Text } from './runtime-dom.js'
+        // 组件更新，有三种情况
+        // 状态变化（data）  会通过响应式系统，自动更新 effect
+        // 属性变化（props）
+        // 插槽变化（children）
+        const childrenComponent = {
+            props: {
+                address: String
+            },
+            render(proxy) {
+                return h(Text, this.address)
+            }
+        }
+
+        const vueComponent = {
+            data() {
+                return {
+                    flag: true
+                }
+            },
+            render(proxy) {
+                return h(Fragment, [
+                    h('button', { onClick: () => { this.flag = !this.flag } }, "点击我"),
+                    h(childrenComponent, { address: this.flag ? "北京" : "上海" })
+                ])
+            }
+        }
+        const app = document.querySelector('.app')
+        render(h(vueComponent), app)
+    </script>
+</body>
+
+</html>

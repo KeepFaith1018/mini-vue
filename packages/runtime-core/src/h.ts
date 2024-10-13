@@ -18,13 +18,12 @@ export function h(type, propsOrChildren?, children?) {
       // h('div',h('a'))
       if (isVnode(propsOrChildren)) {
         return createVnode(type, null, [propsOrChildren]);
-      } else {
-        // h('div',{class: "box"})
-        return createVnode(type, propsOrChildren, null);
       }
+      // h('div',{class: "box"})
+      return createVnode(type, propsOrChildren, null);
+    } else {
+      return createVnode(type, null, propsOrChildren);
     }
-    // 子节点为文本 h('div','hello')
-    return createVnode(type, null, [propsOrChildren]);
   } else {
     if (l > 3) {
       children = Array.from(arguments).slice(2);

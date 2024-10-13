@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <div class="page"></div>
+</head>
+
+<body>
+    <script type="module">
+        import { render, h, Text, Fragment } from './runtime-dom.js'
+        const vueComponent = {
+            props: {
+                name: String,
+                age: Number
+            },
+            data() {
+                return {
+                    name: "组件",
+                    age: 18
+                }
+            },
+            render(proxy) {
+                // 将组件中的dom定义变为虚拟dom
+                return h(Fragment, [
+                    h(Text, "my name is " + this.age),
+                    h("a", this.$attrs.a)
+                ])
+            }
+        }
+        // 这有两个虚拟节点
+        // h（vueComponent） 产生的组件内的虚拟节点
+        // vueComponent中的render放回的虚拟节点，才是真正要渲染的内容
+        render(h(vueComponent, { a: 1, age: 2 }), document.querySelector(".page"))
+    </script>
+</body>
+
+</html>

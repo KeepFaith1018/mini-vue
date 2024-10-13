@@ -1,4 +1,4 @@
-import { isString, ShapeFlags } from "@vue/share";
+import { isObject, isString, ShapeFlags } from "@vue/share";
 export const Text = Symbol("Text");
 export const Fragment = Symbol("Fragment");
 // 判断是否是相同的虚拟节点
@@ -12,7 +12,11 @@ export function isVnode(value) {
 }
 // 创建虚拟节点
 export function createVnode(type, props, children?) {
-  const shapeFlag = isString(type) ? ShapeFlags.ELEMENT : 0;
+  const shapeFlag = isString(type)
+    ? ShapeFlags.ELEMENT // 元素
+    : isObject(type)
+    ? ShapeFlags.STATEFUL_COMPONENT // 组件
+    : 0;
   const vnode = {
     __v_isVnode: true,
     type,
@@ -22,7 +26,6 @@ export function createVnode(type, props, children?) {
     el: null, // 虚拟节点对应的真实节点
     shapeFlag,
   };
-
   if (children) {
     if (Array.isArray(children)) {
       vnode.shapeFlag |= ShapeFlags.ARRAY_CHILDREN;
