@@ -573,6 +573,11 @@ function createRenderer(renderOptions2) {
       patchElement(oldVode, newVnode, container);
     }
   };
+  const updateComponentPreRender = (instance, next) => {
+    instance.next = null;
+    instance.vnode = next;
+    updateProps(instance, instance.props, next.props);
+  };
   function setupRenderEffect(instance, container, anchor) {
     const { render: render3 } = instance;
     const componentUpdateFn = () => {
@@ -583,6 +588,10 @@ function createRenderer(renderOptions2) {
         instance.isMounted = true;
         instance.subTree = subTree;
       } else {
+        const { next } = instance;
+        if (next) {
+          updateComponentPreRender(instance, next);
+        }
         const subTree = render3.call(instance.proxy, instance.proxy);
         console.log("effect\u66F4\u65B0\u7EC4\u4EF6", subTree);
         patch(instance.subTree, subTree, container, anchor);
@@ -625,11 +634,18 @@ function createRenderer(renderOptions2) {
       }
     }
   };
+  const shouldComponentUpdate = (oldVnode, newVnode) => {
+    const { props: preProps, children: preChildren } = oldVnode;
+    const { props: nextProps, children: nextChildren } = newVnode;
+    if (preChildren || nextChildren) return true;
+    return hasPropsChange(preProps, nextProps);
+  };
   const updateComponent = (oldVnode, newVnode) => {
     const instance = newVnode.component = oldVnode.component;
-    const { props: preProps } = oldVnode;
-    const { props: nextProps } = newVnode;
-    updateProps(instance, preProps, nextProps);
+    if (shouldComponentUpdate(oldVnode, newVnode)) {
+      instance.next = newVnode;
+      instance.update();
+    }
   };
   const processComponent = (oldVnode, newVnode, container, anchor) => {
     if (oldVnode == null) {

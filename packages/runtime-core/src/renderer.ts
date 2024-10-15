@@ -84,6 +84,13 @@ export function createRenderer(renderOptions) {
     }
   };
 
+  const updateComponentPreRender = (instance, next) => {
+    instance.next = null;
+    instance.vnode = next;
+
+    updateProps(instance, instance.props, next.props);
+  };
+
   function setupRenderEffect(instance, container, anchor) {
     const { render } = instance;
     const componentUpdateFn = () => {
@@ -96,6 +103,14 @@ export function createRenderer(renderOptions) {
         instance.subTree = subTree;
       } else {
         // 基于组件状态的更新
+        const { next } = instance;
+
+        if (next) {
+          // 更新属性和插槽
+          updateComponentPreRender(instance, next);
+          // props slots
+        }
+
         const subTree = render.call(instance.proxy, instance.proxy);
         console.log("effect更新组件", subTree);
 
@@ -155,11 +170,25 @@ export function createRenderer(renderOptions) {
     }
   };
 
+  const shouldComponentUpdate = (oldVnode, newVnode) => {
+    const { props: preProps, children: preChildren } = oldVnode;
+    const { props: nextProps, children: nextChildren } = newVnode;
+    if (preChildren || nextChildren) return true; // 有插槽，直接重新渲染
+
+    // 如果属性不一致，则更新
+    return hasPropsChange(preProps, nextProps);
+  };
   const updateComponent = (oldVnode, newVnode) => {
     const instance = (newVnode.component = oldVnode.component);
-    const { props: preProps } = oldVnode;
-    const { props: nextProps } = newVnode;
-    updateProps(instance, preProps, nextProps);
+    if (shouldComponentUpdate(oldVnode, newVnode)) {
+      instance.next = newVnode;
+      instance.update();
+    }
+
+    // vue3.2后，逻辑合并
+    // const { props: preProps } = oldVnode;
+    // const { props: nextProps } = newVnode;
+    // updateProps(instance, preProps, nextProps);
   };
   const processComponent = (oldVnode, newVnode, container, anchor) => {
     if (oldVnode == null) {
