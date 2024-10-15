@@ -1,8 +1,8 @@
-import { hasOwn, ShapeFlags } from "@vue/share";
+import { ShapeFlags } from "@vue/share";
 import { Text, isSameVnode, Fragment } from "./createVnode";
 import { h } from "./h";
 import { getSequence } from "./seq";
-import { reactive, ReactiveEffect } from "@vue/reactivity";
+import { ReactiveEffect } from "@vue/reactivity";
 import { queueJob } from "./scheduler";
 import { createComponentInstance, setupComponent } from "./component";
 export function createRenderer(renderOptions) {
@@ -90,12 +90,15 @@ export function createRenderer(renderOptions) {
       // 区分状态，挂载or更新
       if (!instance.isMounted) {
         const subTree = render.call(instance.proxy, instance.proxy);
+        console.log("effect挂载组件", subTree);
         patch(null, subTree, container, anchor);
         instance.isMounted = true;
         instance.subTree = subTree;
       } else {
         // 基于组件状态的更新
         const subTree = render.call(instance.proxy, instance.proxy);
+        console.log("effect更新组件", subTree);
+
         patch(instance.subTree, subTree, container, anchor);
         instance.subTree = subTree;
       }
@@ -117,13 +120,43 @@ export function createRenderer(renderOptions) {
     setupComponent(instance);
     // 3. 创建effect
     setupRenderEffect(instance, container, anchor);
-    console.log("instance", instance);
+  };
+  /**
+   * 判断props是否变化
+   */
+  const hasPropsChange = (preProps, nextProps): boolean => {
+    // 先通过长度判断，然后遍历判断key
+    let nKeys = Object.keys(nextProps);
+    if (nKeys.length == Object.keys(preProps).length) {
+      for (let i = 0; i < nKeys.length; i++) {
+        const key = nKeys[i];
+        if (nextProps[key] !== preProps[key]) {
+          return true;
+        }
+      }
+    }
+    return false;
   };
 
-  const updateProps = (instance, preProps, nextProps) => {};
+  const updateProps = (instance, preProps, nextProps) => {
+    // 复用dom，对比props，更新
+    if (hasPropsChange(preProps, nextProps)) {
+      // 看属性是否有变化
+      for (let key in nextProps) {
+        // 用新的覆盖老的
+        instance.props[key] = nextProps[key];
+      }
+      for (let key in instance.props) {
+        if (!(key in nextProps)) {
+          // 删除多余的
+          delete instance.props[key];
+        }
+      }
+    }
+  };
 
   const updateComponent = (oldVnode, newVnode) => {
-    const instance = (oldVnode.component = newVnode.component);
+    const instance = (newVnode.component = oldVnode.component);
     const { props: preProps } = oldVnode;
     const { props: nextProps } = newVnode;
     updateProps(instance, preProps, nextProps);

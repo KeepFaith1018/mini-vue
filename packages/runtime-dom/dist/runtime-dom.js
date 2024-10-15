@@ -132,7 +132,6 @@ function track(target, key) {
       depsMap.set(key, dep = creatDep(() => depsMap.delete(key), key));
     }
     trackEffect(activeEffect, dep);
-    console.log(targetMap);
   }
 }
 function trigger(target, key, newValue, oldValue) {
@@ -476,6 +475,7 @@ var publicProperty = {
 };
 var handler = {
   get(target, key) {
+    console.log("\u8BFB\u53D6", key);
     const { data, props } = target;
     if (data && hasOwn(data, key)) {
       return data[key];
@@ -488,6 +488,7 @@ var handler = {
     }
   },
   set(target, key, value) {
+    console.log("\u8BBE\u7F6E", key, value);
     const { data, props } = target;
     if (data && hasOwn(data, key)) {
       data[key] = value;
@@ -577,11 +578,13 @@ function createRenderer(renderOptions2) {
     const componentUpdateFn = () => {
       if (!instance.isMounted) {
         const subTree = render3.call(instance.proxy, instance.proxy);
+        console.log("effect\u6302\u8F7D\u7EC4\u4EF6", subTree);
         patch(null, subTree, container, anchor);
         instance.isMounted = true;
         instance.subTree = subTree;
       } else {
         const subTree = render3.call(instance.proxy, instance.proxy);
+        console.log("effect\u66F4\u65B0\u7EC4\u4EF6", subTree);
         patch(instance.subTree, subTree, container, anchor);
         instance.subTree = subTree;
       }
@@ -597,12 +600,33 @@ function createRenderer(renderOptions2) {
     const instance = vnode.component = createComponentInstance(vnode);
     setupComponent(instance);
     setupRenderEffect(instance, container, anchor);
-    console.log("instance", instance);
+  };
+  const hasPropsChange = (preProps, nextProps) => {
+    let nKeys = Object.keys(nextProps);
+    if (nKeys.length == Object.keys(preProps).length) {
+      for (let i = 0; i < nKeys.length; i++) {
+        const key = nKeys[i];
+        if (nextProps[key] !== preProps[key]) {
+          return true;
+        }
+      }
+    }
+    return false;
   };
   const updateProps = (instance, preProps, nextProps) => {
+    if (hasPropsChange(preProps, nextProps)) {
+      for (let key in nextProps) {
+        instance.props[key] = nextProps[key];
+      }
+      for (let key in instance.props) {
+        if (!(key in nextProps)) {
+          delete instance.props[key];
+        }
+      }
+    }
   };
   const updateComponent = (oldVnode, newVnode) => {
-    const instance = oldVnode.component = newVnode.component;
+    const instance = newVnode.component = oldVnode.component;
     const { props: preProps } = oldVnode;
     const { props: nextProps } = newVnode;
     updateProps(instance, preProps, nextProps);

@@ -57,6 +57,8 @@ const publicProperty = {
 
 const handler = {
   get(target, key) {
+    console.log("读取", key);
+
     const { data, props } = target;
     if (data && hasOwn(data, key)) {
       return data[key];
@@ -70,6 +72,8 @@ const handler = {
     }
   },
   set(target, key, value) {
+    console.log("设置", key, value);
+
     const { data, props } = target;
     if (data && hasOwn(data, key)) {
       data[key] = value;
