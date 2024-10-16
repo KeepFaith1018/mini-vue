@@ -5,6 +5,7 @@ import { getSequence } from "./seq";
 import { ReactiveEffect } from "@vue/reactivity";
 import { queueJob } from "./scheduler";
 import { createComponentInstance, setupComponent } from "./component";
+import { invokerArray } from "./apiLifeCycle";
 export function createRenderer(renderOptions) {
   // core中不关心如何进行的渲染
   const {
@@ -95,32 +96,54 @@ export function createRenderer(renderOptions) {
     const { render } = instance;
     const componentUpdateFn = () => {
       // 区分状态，挂载or更新
+
+      const { bm, m } = instance;
+
       if (!instance.isMounted) {
+        if (bm) {
+          invokerArray(bm);
+        }
+
         const subTree = render.call(instance.proxy, instance.proxy);
-        console.log("effect挂载组件", subTree);
+        console.log("effect挂载组件", instance);
         patch(null, subTree, container, anchor);
         instance.isMounted = true;
         instance.subTree = subTree;
+
+        if (m) {
+          invokerArray(m);
+        }
       } else {
         // 基于组件状态的更新
-        const { next } = instance;
+        const { next, bu, u } = instance;
 
         if (next) {
+          console.log("属性和插槽更新", next);
+
           // 更新属性和插槽
           updateComponentPreRender(instance, next);
           // props slots
         }
 
+        if (bu) {
+          invokerArray(bu);
+        }
         const subTree = render.call(instance.proxy, instance.proxy);
         console.log("effect更新组件", subTree);
 
         patch(instance.subTree, subTree, container, anchor);
         instance.subTree = subTree;
+
+        if (u) {
+          invokerArray(u);
+        }
       }
     };
     const effect = new ReactiveEffect(componentUpdateFn, () =>
       queueJob(update)
     );
+    console.log(effect);
+
     const update = (instance.update = () => effect.run());
     // 默认调用一次
     update();
@@ -430,8 +453,11 @@ export function createRenderer(renderOptions) {
   const unmount = (vnode) => {
     if (vnode.type == Fragment) {
       unmountChildren(vnode.children);
+    } else if (vnode.shapeFlag & ShapeFlags.COMPONENT) {
+      unmount(vnode.component.subTree);
+    } else {
+      hostRemove(vnode.el);
     }
-    hostRemove(vnode.el);
   };
 
   /**
