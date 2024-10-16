@@ -91,9 +91,15 @@ export function createRenderer(renderOptions) {
 
     updateProps(instance, instance.props, next.props);
   };
-
+  function renderComponent(instance) {
+    const { render, vnode, proxy, props, attrs } = instance;
+    if (vnode.shapeFlag & ShapeFlags.STATEFUL_COMPONENT) {
+      return render.call(proxy, proxy);
+    } else {
+      return vnode.type(attrs); // 函数式组件
+    }
+  }
   function setupRenderEffect(instance, container, anchor) {
-    const { render } = instance;
     const componentUpdateFn = () => {
       // 区分状态，挂载or更新
 
@@ -104,7 +110,7 @@ export function createRenderer(renderOptions) {
           invokerArray(bm);
         }
 
-        const subTree = render.call(instance.proxy, instance.proxy);
+        const subTree = renderComponent(instance);
         console.log("effect挂载组件", instance);
         patch(null, subTree, container, anchor);
         instance.isMounted = true;
@@ -128,7 +134,7 @@ export function createRenderer(renderOptions) {
         if (bu) {
           invokerArray(bu);
         }
-        const subTree = render.call(instance.proxy, instance.proxy);
+        const subTree = renderComponent(instance);
         console.log("effect更新组件", subTree);
 
         patch(instance.subTree, subTree, container, anchor);
@@ -440,7 +446,8 @@ export function createRenderer(renderOptions) {
         if (shapeFlag & ShapeFlags.ELEMENT) {
           // 元素
           processElement(oldVnode, newVnode, container, anchor);
-        } else if (shapeFlag & ShapeFlags.STATEFUL_COMPONENT) {
+        } else if (shapeFlag & ShapeFlags.COMPONENT) {
+          // TODO: 修改 ShapeFlags.STATEFUL_COMPONENT ->ShapeFlags.COMPONENT,以适应函数式组件
           // 对组件的处理，vue3中废弃函数式组件
           processComponent(oldVnode, newVnode, container, anchor);
         }

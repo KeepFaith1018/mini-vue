@@ -1,4 +1,4 @@
-import { isObject, isString, ShapeFlags } from "@vue/share";
+import { isFunction, isObject, isString, ShapeFlags } from "@vue/share";
 export const Text = Symbol("Text");
 export const Fragment = Symbol("Fragment");
 // 判断是否是相同的虚拟节点
@@ -16,6 +16,8 @@ export function createVnode(type, props, children?) {
     ? ShapeFlags.ELEMENT // 元素
     : isObject(type)
     ? ShapeFlags.STATEFUL_COMPONENT // 组件
+    : isFunction(type) // 函数式组件
+    ? ShapeFlags.FUNCTIONAL_COMPONENT
     : 0;
   const vnode = {
     __v_isVnode: true,

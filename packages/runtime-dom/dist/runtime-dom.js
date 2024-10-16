@@ -321,7 +321,7 @@ function isVnode(value) {
   return value?.__v_isVnode;
 }
 function createVnode(type, props, children) {
-  const shapeFlag = isString(type) ? 1 /* ELEMENT */ : isObject(type) ? 4 /* STATEFUL_COMPONENT */ : 0;
+  const shapeFlag = isString(type) ? 1 /* ELEMENT */ : isObject(type) ? 4 /* STATEFUL_COMPONENT */ : isFunction(type) ? 2 /* FUNCTIONAL_COMPONENT */ : 0;
   const vnode = {
     __v_isVnode: true,
     type,
@@ -672,15 +672,22 @@ function createRenderer(renderOptions2) {
     instance.vnode = next;
     updateProps(instance, instance.props, next.props);
   };
+  function renderComponent(instance) {
+    const { render: render3, vnode, proxy, props, attrs } = instance;
+    if (vnode.shapeFlag & 4 /* STATEFUL_COMPONENT */) {
+      return render3.call(proxy, proxy);
+    } else {
+      return vnode.type(attrs);
+    }
+  }
   function setupRenderEffect(instance, container, anchor) {
-    const { render: render3 } = instance;
     const componentUpdateFn = () => {
       const { bm, m } = instance;
       if (!instance.isMounted) {
         if (bm) {
           invokerArray(bm);
         }
-        const subTree = render3.call(instance.proxy, instance.proxy);
+        const subTree = renderComponent(instance);
         console.log("effect\u6302\u8F7D\u7EC4\u4EF6", instance);
         patch(null, subTree, container, anchor);
         instance.isMounted = true;
@@ -697,7 +704,7 @@ function createRenderer(renderOptions2) {
         if (bu) {
           invokerArray(bu);
         }
-        const subTree = render3.call(instance.proxy, instance.proxy);
+        const subTree = renderComponent(instance);
         console.log("effect\u66F4\u65B0\u7EC4\u4EF6", subTree);
         patch(instance.subTree, subTree, container, anchor);
         instance.subTree = subTree;
@@ -905,7 +912,7 @@ function createRenderer(renderOptions2) {
       default:
         if (shapeFlag & 1 /* ELEMENT */) {
           processElement(oldVnode, newVnode, container, anchor);
-        } else if (shapeFlag & 4 /* STATEFUL_COMPONENT */) {
+        } else if (shapeFlag & 6 /* COMPONENT */) {
           processComponent(oldVnode, newVnode, container, anchor);
         }
     }
