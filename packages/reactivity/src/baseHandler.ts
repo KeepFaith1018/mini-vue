@@ -7,6 +7,7 @@ import { ReactiveFlags } from "./constants";
 export const mutableHandlers: ProxyHandler<any> = {
   get(target, key, receiver) {
     if (key == ReactiveFlags.IS_REACTIVE) return true;
+    console.log("收集依赖", target, key);
 
     track(target, key);
     let res = Reflect.get(target, key, receiver);
@@ -21,9 +22,9 @@ export const mutableHandlers: ProxyHandler<any> = {
     let reseult = Reflect.set(target, key, value, receiver);
     if (oldValue != value) {
       // 值不同时，副作用函数重新执行
+      console.log("触发函数", target, key, value, oldValue);
       trigger(target, key, value, oldValue);
     }
-
     return reseult;
   },
 };

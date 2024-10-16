@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <div class="app"></div>
+</head>
+
+<body>
+    <script type="module">
+        import { h, render, Fragment, Text, ref, onBeforeMount, onMounted, onBeforeUpdate, onUpdated } from './runtime-dom.js'
+        // 插槽： 子组件提供插槽位置，父组件传递内容
+        const renderComponent = {
+            setup(proxy, { slots, emits, exposes }) {
+                onBeforeMount(() => {
+                    console.log('child beforemounted')
+                })
+                onMounted(() => {
+                    console.log('child mounted')
+                })
+                onBeforeUpdate(() => {
+                    console.log('child beforeupdate')
+
+                })
+                onUpdated(() => {
+                    console.log('child updated')
+                })
+                return (proxy) => h(Fragment, [
+                    slots.header(),
+                    slots.footer("参数")
+                ])
+            }
+        }
+        const vueComponent = {
+            setup(proxy) {
+                onBeforeMount(() => {
+                    console.log('p beforemounted')
+                })
+                onMounted(() => {
+                    console.log('p mounted')
+                })
+                onBeforeUpdate(() => {
+                    console.log('p beforeupdate')
+
+                })
+                onUpdated(() => {
+                    console.log('p updated')
+                })
+                return (proxy) => {
+                    return h(renderComponent, null, {
+                        // 匿名插槽
+                        default: () => h('div', ''),
+                        // 具名插槽
+                        header: () => h('header', 'header'),
+                        // 作用域插槽
+                        footer: (a) => h('footer', a)
+                    })
+                }
+            }
+        }
+        const app = document.querySelector('.app')
+        render(h(vueComponent), app)
+    </script>
+</body>
+
+</html>

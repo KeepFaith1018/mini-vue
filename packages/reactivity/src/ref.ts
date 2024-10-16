@@ -78,7 +78,9 @@ class ObjectRefImpl {
     this._object[this._key] = value;
   }
 }
-
+/**
+ * 自动解包ref，不用通过.value访问
+ */
 export function proxyRefs(object) {
   return new Proxy(object, {
     get(target, key, receiver) {

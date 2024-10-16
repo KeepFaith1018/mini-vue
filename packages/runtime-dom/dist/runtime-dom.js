@@ -149,6 +149,7 @@ function trigger(target, key, newValue, oldValue) {
 var mutableHandlers = {
   get(target, key, receiver) {
     if (key == "__v_isReactive" /* IS_REACTIVE */) return true;
+    console.log("\u6536\u96C6\u4F9D\u8D56", target, key);
     track(target, key);
     let res = Reflect.get(target, key, receiver);
     if (isObject(res)) {
@@ -160,6 +161,7 @@ var mutableHandlers = {
     const oldValue = target[key];
     let reseult = Reflect.set(target, key, value, receiver);
     if (oldValue != value) {
+      console.log("\u89E6\u53D1\u51FD\u6570", target, key, value, oldValue);
       trigger(target, key, value, oldValue);
     }
     return reseult;
@@ -334,6 +336,8 @@ function createVnode(type, props, children) {
   if (children) {
     if (Array.isArray(children)) {
       vnode.shapeFlag |= 16 /* ARRAY_CHILDREN */;
+    } else if (isObject(children)) {
+      vnode.shapeFlag |= 32 /* SLOTS_CHILDREN */;
     } else {
       children = String(children);
       vnode.shapeFlag |= 8 /* TEXT_CHILDREN */;
@@ -440,19 +444,30 @@ function createComponentInstance(vnode) {
     // 组件更新的函数
     isMounted: false,
     // 是否挂载
-    // 使用propsOptions来区分，props和attrs
-    // props必须用户先声明才能取值
-    // props没有声明，attrs有所有属性，声明后，会从attrs中抽离出来放到props里
+    // 使用propsOptions来区分，props和attrsprops必须用户先声明才能取值 props没有声明，attrs有所有属性，声明后，会从attrs中抽离出来放到props里
     props: {},
     attrs: {},
+    slots: {},
+    // 插槽
     propsOptions: vnode.type.props,
     // 用户声明的组件的props
     component: null,
-    proxy: null
+    proxy: null,
     // 代理对象，方便用户访问props，attrs，data
+    setupState: {},
+    // setup返回函数还是对象
+    exposed: null
+    // 暴露给外部的属性
   };
   return instance;
 }
+var initSlots = (instance, children) => {
+  if (instance.vnode.shapeFlag & 32 /* SLOTS_CHILDREN */) {
+    instance.slots = children;
+  } else {
+    instance.slots = {};
+  }
+};
 var initProps = (instance, rawProps) => {
   const props = {};
   const attrs = {};
@@ -471,16 +486,19 @@ var initProps = (instance, rawProps) => {
   instance.attrs = attrs;
 };
 var publicProperty = {
-  $attrs: (instance) => instance.attrs
+  $attrs: (instance) => instance.attrs,
+  $slots: (instance) => instance.slots
 };
 var handler = {
   get(target, key) {
     console.log("\u8BFB\u53D6", key);
-    const { data, props } = target;
+    const { data, props, setupState } = target;
     if (data && hasOwn(data, key)) {
       return data[key];
     } else if (hasOwn(props, key)) {
       return props[key];
+    } else if (hasOwn(setupState, key)) {
+      return setupState[key];
     }
     const getter = publicProperty[key];
     if (getter) {
@@ -489,12 +507,14 @@ var handler = {
   },
   set(target, key, value) {
     console.log("\u8BBE\u7F6E", key, value);
-    const { data, props } = target;
+    const { data, props, setupState } = target;
     if (data && hasOwn(data, key)) {
       data[key] = value;
     } else if (hasOwn(props, key)) {
       console.warn("props are readonly");
       return false;
+    } else if (hasOwn(setupState, key)) {
+      setupState[key] = value;
     }
     return true;
   }
@@ -502,15 +522,89 @@ var handler = {
 function setupComponent(instance) {
   const { vnode } = instance;
   initProps(instance, vnode.props);
+  initSlots(instance, vnode.children);
   instance.proxy = new Proxy(instance, handler);
   const { data = () => {
-  }, render: render2 } = vnode.type;
+  }, render: render2, setup } = vnode.type;
+  if (setup) {
+    const setupContext = {
+      slots: instance.slots,
+      attrs: instance.attrs,
+      expose(value) {
+        instance.exposed = value;
+      },
+      /**
+       * 触发事件
+       * @param event 事件名
+       * @param payload 参数
+       */
+      emit(event, ...payload) {
+        const eventName = `on${event[0].toUpperCase() + event.slice(1)}`;
+        const handler2 = instance.props[eventName];
+        handler2 && handler2(...payload);
+      }
+    };
+    setCurrentInstance(instance);
+    const setupResult = setup(instance.proxy, setupContext);
+    console.log("setup end");
+    unsetCurrentInstance();
+    if (isFunction(setupResult)) {
+      instance.render = setupResult;
+    } else {
+      instance.setupState = proxyRefs(setupResult);
+    }
+  }
   if (!isFunction(data)) {
     console.warn("data option must be a function");
   } else {
     instance.data = reactive(data.call(instance.proxy));
   }
-  instance.render = render2;
+  if (!instance.render) {
+    instance.render = render2;
+  }
+}
+var currentInstance = null;
+var getCurrentInstance = () => currentInstance;
+var setCurrentInstance = (instance) => {
+  currentInstance = instance;
+};
+var unsetCurrentInstance = () => {
+  currentInstance = null;
+};
+
+// packages/runtime-core/src/apiLifeCycle.ts
+var LifeCycle = /* @__PURE__ */ ((LifeCycle2) => {
+  LifeCycle2["BEFORE_MOUNT"] = "bm";
+  LifeCycle2["MOUNTED"] = "m";
+  LifeCycle2["BEFORE_UPDATE"] = "bu";
+  LifeCycle2["UPDATED"] = "u";
+  LifeCycle2["BEFORE_UNMOUNT"] = "bum";
+  LifeCycle2["UNMOUNTED"] = "um";
+  return LifeCycle2;
+})(LifeCycle || {});
+function createHook(type) {
+  return (hook, target = currentInstance) => {
+    if (target) {
+      let wrapHook = function() {
+        setCurrentInstance(target);
+        hook.call(target);
+        unsetCurrentInstance();
+      };
+      const hooks = target[type] || (target[type] = []);
+      hooks.push(wrapHook);
+    }
+  };
+}
+var onBeforeMount = createHook("bm" /* BEFORE_MOUNT */);
+var onMounted = createHook("m" /* MOUNTED */);
+var onBeforeUpdate = createHook("bu" /* BEFORE_UPDATE */);
+var onUpdated = createHook("u" /* UPDATED */);
+var onBeforeUnmount = createHook("bum" /* BEFORE_UNMOUNT */);
+var onUnmounted = createHook("um" /* UNMOUNTED */);
+function invokerArray(fns) {
+  for (let i = 0; i < fns.length; i++) {
+    fns[i]();
+  }
 }
 
 // packages/runtime-core/src/renderer.ts
@@ -581,27 +675,42 @@ function createRenderer(renderOptions2) {
   function setupRenderEffect(instance, container, anchor) {
     const { render: render3 } = instance;
     const componentUpdateFn = () => {
+      const { bm, m } = instance;
       if (!instance.isMounted) {
+        if (bm) {
+          invokerArray(bm);
+        }
         const subTree = render3.call(instance.proxy, instance.proxy);
-        console.log("effect\u6302\u8F7D\u7EC4\u4EF6", subTree);
+        console.log("effect\u6302\u8F7D\u7EC4\u4EF6", instance);
         patch(null, subTree, container, anchor);
         instance.isMounted = true;
         instance.subTree = subTree;
+        if (m) {
+          invokerArray(m);
+        }
       } else {
-        const { next } = instance;
+        const { next, bu, u } = instance;
         if (next) {
+          console.log("\u5C5E\u6027\u548C\u63D2\u69FD\u66F4\u65B0", next);
           updateComponentPreRender(instance, next);
+        }
+        if (bu) {
+          invokerArray(bu);
         }
         const subTree = render3.call(instance.proxy, instance.proxy);
         console.log("effect\u66F4\u65B0\u7EC4\u4EF6", subTree);
         patch(instance.subTree, subTree, container, anchor);
         instance.subTree = subTree;
+        if (u) {
+          invokerArray(u);
+        }
       }
     };
     const effect2 = new ReactiveEffect(
       componentUpdateFn,
       () => queueJob(update)
     );
+    console.log(effect2);
     const update = instance.update = () => effect2.run();
     update();
   }
@@ -804,8 +913,11 @@ function createRenderer(renderOptions2) {
   const unmount = (vnode) => {
     if (vnode.type == Fragment) {
       unmountChildren(vnode.children);
+    } else if (vnode.shapeFlag & 6 /* COMPONENT */) {
+      unmount(vnode.component.subTree);
+    } else {
+      hostRemove(vnode.el);
     }
-    hostRemove(vnode.el);
   };
   const render2 = (vnode, container) => {
     if (vnode == null) {
@@ -935,26 +1047,40 @@ var render = (vnode, container) => {
 };
 export {
   Fragment,
+  LifeCycle,
   ReactiveEffect,
   Text,
   activeEffect,
   computed,
+  createComponentInstance,
   createRenderer,
   createVnode,
+  currentInstance,
   effect,
+  getCurrentInstance,
   h,
+  invokerArray,
   isSameVnode,
   isVnode,
+  onBeforeMount,
+  onBeforeUnmount,
+  onBeforeUpdate,
+  onMounted,
+  onUnmounted,
+  onUpdated,
   proxyRefs,
   reactive,
   ref,
   render,
+  setCurrentInstance,
+  setupComponent,
   toReactive,
   toRef,
   toRefs,
   trackEffect,
   trackRefValue,
   triggerEffect,
-  triggerRefValue
+  triggerRefValue,
+  unsetCurrentInstance
 };
 //# sourceMappingURL=runtime-dom.js.map
