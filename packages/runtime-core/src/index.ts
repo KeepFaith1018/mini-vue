@@ -5,3 +5,4 @@ export * from "./renderer";
 export * from "./apiLifeCycle";
 export * from "./component";
 export * from "./apiProvide";
+export * from "./Teleport";

@@ -386,7 +386,13 @@ export function createRenderer(renderOptions) {
       }
     }
   };
-
+  /**
+   * 更新子节点
+   * @param oldVNode
+   * @param newVNode
+   * @param el
+   * @param parentComponent
+   */
   const patchChildren = (oldVNode, newVNode, el, parentComponent) => {
     let oldChildren = oldVNode.children;
     let newChildren = normalize(newVNode.children);
@@ -479,6 +485,18 @@ export function createRenderer(renderOptions) {
             anchor,
             parentComponent
           );
+        } else if (shapeFlag & ShapeFlags.TELEPORT) {
+          type.process(oldVnode, newVnode, container, anchor, parentComponent, {
+            mountChildren,
+            patchChildren,
+            move(vnode, container, anchor) {
+              hostInsert(
+                vnode.component ? vnode.component.subTree.el : vnode.el,
+                container,
+                anchor
+              );
+            },
+          });
         } else if (shapeFlag & ShapeFlags.COMPONENT) {
           // TODO: 修改 ShapeFlags.STATEFUL_COMPONENT ->ShapeFlags.COMPONENT,以适应函数式组件
           // 对组件的处理，vue3中废弃函数式组件
@@ -499,6 +517,8 @@ export function createRenderer(renderOptions) {
   const unmount = (vnode) => {
     if (vnode.type == Fragment) {
       unmountChildren(vnode.children);
+    } else if (vnode.shapeFlag & ShapeFlags.TELEPORT) {
+      vnode.type.remove(vnode, unmount);
     } else if (vnode.shapeFlag & ShapeFlags.COMPONENT) {
       unmount(vnode.component.subTree);
     } else {

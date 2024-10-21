@@ -1,4 +1,5 @@
 import { isFunction, isObject, isString, ShapeFlags } from "@vue/share";
+import { isTeleport } from "./Teleport";
 export const Text = Symbol("Text");
 export const Fragment = Symbol("Fragment");
 // 判断是否是相同的虚拟节点
@@ -14,6 +15,8 @@ export function isVnode(value) {
 export function createVnode(type, props, children?) {
   const shapeFlag = isString(type)
     ? ShapeFlags.ELEMENT // 元素
+    : isTeleport(type)
+    ? ShapeFlags.TELEPORT
     : isObject(type)
     ? ShapeFlags.STATEFUL_COMPONENT // 组件
     : isFunction(type) // 函数式组件
