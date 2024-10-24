@@ -1,5 +1,5 @@
 import { ShapeFlags } from "@vue/share";
-import { Text, isSameVnode, Fragment } from "./createVnode";
+import { Text, isSameVnode, Fragment, createVnode } from "./createVnode";
 import { h } from "./h";
 import { getSequence } from "./seq";
 import { ReactiveEffect } from "@vue/reactivity";
@@ -21,13 +21,17 @@ export function createRenderer(renderOptions) {
     nextSibling: hostNextSibling,
   } = renderOptions;
 
-  const normalize = (children) => {
-    for (let i = 0; i < children.length; i++) {
-      if (typeof children[i] === "string" || typeof children[i] === "number") {
-        children[i] = h(Text, {}, String(children[i]));
+  const normalize = (child) => {
+    if (Array.isArray(child)) {
+      for (let i = 0; i < child.length; i++) {
+        if (typeof child[i] === "string" || typeof child[i] === "number") {
+          child[i] = normalize(child[i]);
+        }
       }
+    } else if (typeof child === "string") {
+      child = createVnode(Text, null, String(child));
     }
-    return children;
+    return child;
   };
   const mountChildren = (children, container, parentComponent) => {
     normalize(children);
@@ -104,6 +108,7 @@ export function createRenderer(renderOptions) {
   };
   function renderComponent(instance) {
     const { render, vnode, proxy, props, attrs } = instance;
+
     if (vnode.shapeFlag & ShapeFlags.STATEFUL_COMPONENT) {
       return render.call(proxy, proxy);
     } else {
@@ -159,7 +164,6 @@ export function createRenderer(renderOptions) {
     const effect = new ReactiveEffect(componentUpdateFn, () =>
       queueJob(update)
     );
-    console.log(effect);
 
     const update = (instance.update = () => effect.run());
     // 默认调用一次
@@ -192,7 +196,8 @@ export function createRenderer(renderOptions) {
   /**
    * 判断props是否变化
    */
-  const hasPropsChange = (preProps, nextProps): boolean => {
+  const hasPropsChange = (preProps = {}, nextProps = {}): boolean => {
+    // TODO: 出现意外的报错，当测试异步组件没错误重试时，preProps为undifined，所以加上{}
     // 先通过长度判断，然后遍历判断key
     let nKeys = Object.keys(nextProps);
     if (nKeys.length == Object.keys(preProps).length) {
@@ -227,7 +232,6 @@ export function createRenderer(renderOptions) {
     const { props: preProps, children: preChildren } = oldVnode;
     const { props: nextProps, children: nextChildren } = newVnode;
     if (preChildren || nextChildren) return true; // 有插槽，直接重新渲染
-
     // 如果属性不一致，则更新
     return hasPropsChange(preProps, nextProps);
   };
@@ -415,9 +419,9 @@ export function createRenderer(renderOptions) {
    */
   const patchChildren = (oldVNode, newVNode, el, parentComponent) => {
     let oldChildren = oldVNode.children;
-    let newChildren = normalize(newVNode.children);
+    // let newChildren = newVNode.children;
 
-    // let newChildren = normalize(newVNode.children);
+    let newChildren = normalize(newVNode.children);
     let preShapeFlag = oldVNode.shapeFlag;
     let shapeFlag = newVNode.shapeFlag;
 

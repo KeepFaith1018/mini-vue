@@ -7,3 +7,4 @@ export * from "./component";
 export * from "./apiProvide";
 export * from "./components/Teleport";
 export * from "./components/KeepAlive";
+export * from "./defineAsyncComponent";
