@@ -25,6 +25,7 @@ export function createComponentInstance(vnode, parent) {
     parent, // 父组件
     // 提供给子组件的属性
     provides: parent ? parent.provides : Object.create(null), // 没有原型
+    ctx: {} as any, // keepalive中缓存的dom
   };
   return instance;
 }
