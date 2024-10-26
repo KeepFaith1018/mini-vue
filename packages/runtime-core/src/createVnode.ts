@@ -12,7 +12,7 @@ export function isVnode(value) {
   return value?.__v_isVnode;
 }
 // 创建虚拟节点
-export function createVnode(type, props, children?) {
+export function createVnode(type, props, children?, patchFlag?) {
   const shapeFlag = isString(type)
     ? ShapeFlags.ELEMENT // 元素
     : isTeleport(type)
@@ -30,7 +30,12 @@ export function createVnode(type, props, children?) {
     key: props?.key, // 进行diff算法比较时的key
     el: null, // 虚拟节点对应的真实节点
     shapeFlag,
+    patchFlag,
   };
+  // 收集动态节点
+  if (currentBlock && patchFlag > 0) {
+    currentBlock.push(vnode);
+  }
   if (children) {
     if (Array.isArray(children)) {
       vnode.shapeFlag |= ShapeFlags.ARRAY_CHILDREN;
@@ -42,4 +47,34 @@ export function createVnode(type, props, children?) {
     }
   }
   return vnode;
+}
+// 用于收集动态节点
+let currentBlock = null;
+
+export function openBlock() {
+  currentBlock = [];
+}
+export function closeBlock() {
+  currentBlock = null;
+}
+
+export const setupBlock = (vnode) => {
+  vnode.dynamicChildren = currentBlock;
+  closeBlock();
+  return vnode;
+};
+
+// 与createVnode不同的是,block能收集动态节点
+export function createElementBlock(type, props, children, patchFlag?) {
+  return setupBlock(createVnode(type, props, children, patchFlag));
+}
+export { createVnode as createElementVnode };
+export function toDisplayString(val) {
+  return isString(val)
+    ? val
+    : val == null
+    ? ""
+    : isObject(val)
+    ? JSON.stringify(val)
+    : String(val);
 }

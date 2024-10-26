@@ -10,6 +10,7 @@ export function isString(str: any) {
   return typeof str === "string";
 }
 export * from "./shapeFlags";
+export * from "./patchFlags";
 
 const hasOwnProperty = Object.prototype.hasOwnProperty;
 export const hasOwn = (value, key) => hasOwnProperty.call(value, key);

@@ -1,4 +1,4 @@
-import { ShapeFlags } from "@vue/share";
+import { PatchFlags, ShapeFlags } from "@vue/share";
 import { Text, isSameVnode, Fragment, createVnode } from "./createVnode";
 import { h } from "./h";
 import { getSequence } from "./seq";
@@ -78,11 +78,17 @@ export function createRenderer(renderOptions) {
       }
     }
   };
-  const processFragment = (oldVnode, newVnode, container, parentComponent) => {
+  const processFragment = (
+    oldVnode,
+    newVnode,
+    container,
+    anchor,
+    parentComponent
+  ) => {
     if (oldVnode == null) {
       mountChildren(newVnode.children, container, parentComponent);
     } else {
-      patchChildren(oldVnode, newVnode, container, parentComponent);
+      patchChildren(oldVnode, newVnode, container, anchor, parentComponent);
     }
   };
   const processElement = (
@@ -96,7 +102,7 @@ export function createRenderer(renderOptions) {
       // 初始化操作
       mountElement(newVnode, container, anchor, parentComponent);
     } else {
-      patchElement(oldVode, newVnode, container, parentComponent);
+      patchElement(oldVode, newVnode, container, anchor, parentComponent);
     }
   };
 
@@ -398,7 +404,7 @@ export function createRenderer(renderOptions) {
     }
   };
 
-  const patchProps = (oldProps, newProps, el) => {
+  const patchProps = (oldProps, newProps, el, parentComponent) => {
     // 新的全部生效
     for (let key in newProps) {
       hostPatchProp(el, key, oldProps[key], newProps[key]);
@@ -410,6 +416,24 @@ export function createRenderer(renderOptions) {
       }
     }
   };
+  const patchBlockChildren = (
+    oldVNode,
+    newVNode,
+    el,
+    anchor,
+    parentComponent
+  ) => {
+    for (let i = 0; i < newVNode.dynamicChildren.length; i++) {
+      patch(
+        oldVNode.dynamicChildren[i],
+        newVNode.dynamicChildren[i],
+        el,
+        anchor,
+        parentComponent
+      );
+    }
+  };
+
   /**
    * 更新子节点
    * @param oldVNode
@@ -417,7 +441,7 @@ export function createRenderer(renderOptions) {
    * @param el
    * @param parentComponent
    */
-  const patchChildren = (oldVNode, newVNode, el, parentComponent) => {
+  const patchChildren = (oldVNode, newVNode, el, anchor, parentComponent) => {
     let oldChildren = oldVNode.children;
     // let newChildren = newVNode.children;
 
@@ -465,16 +489,64 @@ export function createRenderer(renderOptions) {
    * @param newVNode 新的虚拟节点
    * @param container
    */
-  const patchElement = (oldVNode, newVNode, container, parentComponent) => {
+  const patchElement = (
+    oldVNode,
+    newVNode,
+    container,
+    anchor,
+    parentComponent
+  ) => {
     let el = (newVNode.el = oldVNode.el); // 比较差异，更新old的，然后复用给new
     let oldProps = oldVNode.props || {};
     let newProps = newVNode.props || {};
-    // 处理属性 hostPatchProp只针对单一的属性
-    patchProps(oldProps, newProps, el);
-    // 处理子节点
-    patchChildren(oldVNode, newVNode, el, parentComponent);
+
+    // 利用patchFlag 靶向更新
+    const { patchFlag, dynamicChildren } = newVNode;
+    if (patchFlag > 0) {
+      if (patchFlag & PatchFlags.FULL_PROPS) {
+        // element props contain dynamic keys, full diff needed
+        patchProps(el, oldProps, newProps, parentComponent);
+      } else {
+        // class
+        if (patchFlag & PatchFlags.CLASS) {
+          if (oldProps.class !== newProps.class) {
+            hostPatchProp(el, "class", null, newProps.class);
+          }
+        }
+        // style
+        if (patchFlag & PatchFlags.STYLE) {
+          hostPatchProp(el, "style", oldProps.style, newProps.style);
+        }
+
+        // props
+        if (patchFlag & PatchFlags.PROPS) {
+          // if the flag is present then dynamicProps must be non-null
+          const propsToUpdate = newVNode.dynamicProps!;
+          for (let i = 0; i < propsToUpdate.length; i++) {
+            const key = propsToUpdate[i];
+            const prev = oldProps[key];
+            const next = newProps[key];
+            if (next !== prev || key === "value") {
+              hostPatchProp(el, key, prev, next, parentComponent);
+            }
+          }
+        }
+      }
+    } else {
+      // 处理属性 hostPatchProp只针对单一的属性
+      patchProps(oldProps, newProps, el, parentComponent);
+    }
+
+    if (dynamicChildren) {
+      // 线性比对
+      patchBlockChildren(oldVNode, newVNode, el, anchor, parentComponent);
+    } else {
+      // 全量比对
+      // 处理子节点
+      patchChildren(oldVNode, newVNode, el, anchor, parentComponent);
+    }
   };
-  // 渲染和更新都通过这个函数
+  //渲染和更新都通过这个函数
   const patch = (
     oldVnode,
     newVnode,
@@ -497,7 +569,7 @@ export function createRenderer(renderOptions) {
         processText(oldVnode, newVnode, container);
         break;
       case Fragment:
-        processFragment(oldVnode, newVnode, container, parentComponent);
+        processFragment(oldVnode, newVnode, container, anchor, parentComponent);
         break;
       default:
         if (shapeFlag & ShapeFlags.ELEMENT) {
