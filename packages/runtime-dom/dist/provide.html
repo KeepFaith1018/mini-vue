@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <div id="app"></div>
+</head>
+
+<body>
+    <script type="module">
+        import { h, render, provide, inject, ref } from './runtime-dom.js'
+        const p1 = {
+            setup(proxy) {
+                const name = inject("name")
+                const refname = inject("refname")
+                return () => h('div', [name, refname.value])
+            }
+        }
+        const p2 = {
+            setup() {
+                return () => h(p1)
+            }
+        }
+        const p3 = {
+            setup(proxy) {
+                const name = "name"
+                const refname = ref('refname')
+                setTimeout(() => {
+                    refname.value = 'refname2'
+                }, 1000)
+                provide('name', name)
+                provide('refname', refname)
+                return () => h(p2)
+            }
+        }
+        const app = document.querySelector('#app')
+        render(h(p3), app)
+    </script>
+</body>
+
+</html>

@@ -15,20 +15,20 @@ export function h(type, propsOrChildren?, children?) {
   let l = arguments.length;
   if (l === 2) {
     if (isObject(propsOrChildren) && !Array.isArray(propsOrChildren)) {
-      // h('div',h('a'))
+      // single vnode without props
       if (isVnode(propsOrChildren)) {
         return createVnode(type, null, [propsOrChildren]);
       }
-      // h('div',{class: "box"})
-      return createVnode(type, propsOrChildren, null);
+      // props without children
+      return createVnode(type, propsOrChildren);
     } else {
+      // omit props
       return createVnode(type, null, propsOrChildren);
     }
   } else {
     if (l > 3) {
-      children = Array.from(arguments).slice(2);
-    }
-    if (l === 3 && isVnode(children)) {
+      children = Array.prototype.slice.call(arguments, 2);
+    } else if (l === 3 && isVnode(children)) {
       children = [children];
     }
     return createVnode(type, propsOrChildren, children);

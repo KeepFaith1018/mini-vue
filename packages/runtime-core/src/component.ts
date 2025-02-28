@@ -6,7 +6,7 @@ import { hasOwn, isFunction, ShapeFlags } from "@vue/share";
  * @param vnode
  * @returns
  */
-export function createComponentInstance(vnode) {
+export function createComponentInstance(vnode, parent) {
   const instance = {
     data: null, // 状态
     vnode: vnode, // 虚拟节点
@@ -22,6 +22,10 @@ export function createComponentInstance(vnode) {
     proxy: null, // 代理对象，方便用户访问props，attrs，data
     setupState: {}, // setup返回函数还是对象
     exposed: null, // 暴露给外部的属性
+    parent, // 父组件
+    // 提供给子组件的属性
+    provides: parent ? parent.provides : Object.create(null), // 没有原型
+    ctx: {} as any, // keepalive中缓存的dom
   };
   return instance;
 }

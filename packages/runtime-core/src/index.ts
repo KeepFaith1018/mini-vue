@@ -4,3 +4,7 @@ export * from "./createVnode";
 export * from "./renderer";
 export * from "./apiLifeCycle";
 export * from "./component";
+export * from "./apiProvide";
+export * from "./components/Teleport";
+export * from "./components/KeepAlive";
+export * from "./defineAsyncComponent";

@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <div class="app"></div>
+</head>
+
+<body>
+    <script type="module">
+        import { h, render, Fragment, Text, ref, onBeforeMount, onMounted, onBeforeUpdate, onUpdated } from './runtime-dom.js'
+
+        function functionalComponent(props) {
+            return h('div', props.a + props.b)
+        }
+
+        const app = document.querySelector('.app')
+        render(h(functionalComponent, { a: 1, b: 2 }), app)
+    </script>
+</body>
+
+</html>

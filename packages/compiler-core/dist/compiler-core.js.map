@@ -1,0 +1,7 @@
+{
+  "version": 3,
+  "sources": ["../src/index.ts"],
+  "sourcesContent": ["/* \u7F16\u8BD1\u4E3B\u8981\u5206\u4E3A\u4E09\u6B65\n 1. \u5C06\u6A21\u677F\u8F6C\u6362\u6210AST\u8BED\u6CD5\u6811\n 2. \u8F6C\u5316\u751F\u6210codegennode\n 3. \u8F6C\u5316\u751F\u6210render\u65B9\u6CD5\n**/\n\nexport function prase(template) {}\n"],
+  "mappings": ";AAMO,SAAS,MAAM,UAAU;AAAC;",
+  "names": []
+}
