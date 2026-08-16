@@ -22,9 +22,9 @@ class RefImpl {
     return this._value;
   }
   set value(newValue) {
-    if (this.rawValue !== newValue) {
+    if (!Object.is(this.rawValue, newValue)) {
       this.rawValue = newValue;
-      this._value = newValue;
+      this._value = toReactive(newValue);
       triggerRefValue(this);
     }
   }
@@ -61,8 +61,8 @@ export function toRef(object, key) {
 }
 
 export function toRefs(object) {
-  const res = {};
-  for (let key of object) {
+  const res = Array.isArray(object) ? new Array(object.length) : {};
+  for (const key in object) {
     res[key] = toRef(object, key);
   }
   return res;
@@ -85,11 +85,11 @@ export function proxyRefs(object) {
   return new Proxy(object, {
     get(target, key, receiver) {
       let res = Reflect.get(target, key, receiver);
-      return res._v_isRef ? res.value : res;
+      return isRef(res) ? res.value : res;
     },
     set(target, key, value, receiver) {
       const oldValue = target[key];
-      if (oldValue._v_isRef) {
+      if (isRef(oldValue) && !isRef(value)) {
         oldValue.value = value;
         return true;
       } else {
@@ -98,3 +98,6 @@ export function proxyRefs(object) {
     },
   });
 }
+
+export const isRef = (value) => !!value?._v_isRef;
+export const unref = (value) => (isRef(value) ? value.value : value);

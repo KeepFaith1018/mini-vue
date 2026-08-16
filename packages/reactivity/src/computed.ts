@@ -1,8 +1,9 @@
 import { isFunction } from "@vue/share";
-import { ReactiveEffect, triggerEffect } from "./effect";
+import { ReactiveEffect } from "./effect";
 import { trackRefValue, triggerRefValue } from "./ref";
 
 class ComputedRefImpl {
+  public _v_isRef = true;
   public _value;
   public effect; // 与依赖的值建立关联
   public dep; // 与其他依赖于计算属性的值建立关联
@@ -17,12 +18,11 @@ class ComputedRefImpl {
     );
   }
   get value() {
+    trackRefValue(this);
     // 在此进行缓存处理
     if (this.effect.dirty) {
       // 默认第一次是脏值
       this._value = this.effect.run(); // 执行一次run后，就不是脏值了，将值缓存起来
-      // 收集依赖
-      trackRefValue(this);
     }
     return this._value;
   }

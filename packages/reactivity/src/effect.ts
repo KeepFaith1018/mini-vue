@@ -2,15 +2,9 @@ import { DirtyLevels } from "./constants";
 
 // 提供一个函数来记录副作用函数
 export function effect(fn, options?) {
-  const _effect = new ReactiveEffect(fn, () => {
-    // 默认的调度器 scheduler
-    _effect.run();
-  });
+  const _effect = new ReactiveEffect(fn, () => _effect.run());
+  if (options) Object.assign(_effect, options);
   _effect.run();
-  // 自定义了调度器
-  if (options) {
-    Object.assign(_effect, options);
-  }
   const runner = _effect.run.bind(_effect);
   runner.effect = _effect;
   return runner;
@@ -45,7 +39,8 @@ export class ReactiveEffect {
    * @param fn 用户创建的副作用函数，执行时会收集依赖，依赖变更会重新执行
    * @param scheduler 调度器，默认调用fn函数，也可以自定义处理逻辑
    */
-  constructor(public fn, public scheduler) {}
+  onStop?: () => void;
+  constructor(public fn, public scheduler?) {}
   public get dirty() {
     return this._dirtyLevel === DirtyLevels.Dirty;
   }
@@ -72,6 +67,14 @@ export class ReactiveEffect {
       // 只能通过preCleanEffect来将本次的依赖正确的替换到deps前面（替换有限个），多余的通过下面函数清理
       postCleanEffect(this);
     }
+  }
+
+  stop() {
+    if (!this.active) return;
+    for (const dep of this.deps) cleanEffect(dep, this);
+    this.deps.length = 0;
+    this.active = false;
+    this.onStop?.();
   }
 }
 
@@ -112,7 +115,7 @@ export function trackEffect(effect, dep: any) {
  * @param dep 依赖集
  */
 export function triggerEffect(dep) {
-  for (const effect of dep.keys()) {
+  for (const effect of [...dep.keys()]) {
     // 如果不是脏值，触发更新需要将值变为脏值
 
     // 属性依赖了计算属性，需要让计算属性的dirty在变为true
@@ -121,10 +124,14 @@ export function triggerEffect(dep) {
     }
 
     if (effect.scheduler) {
-      if (!effect.running) {
+      if (!effect._running) {
         // 如果不是正在执行，则执行
         effect.scheduler();
       }
     }
   }
+}
+
+export function stop(runner) {
+  runner.effect.stop();
 }
