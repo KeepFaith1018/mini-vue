@@ -6,14 +6,21 @@
   "main": "index.js",
   "type": "module",
   "scripts": {
-    "dev": "node scripts/dev.js compiler-core esm"
+    "dev": "node scripts/dev.js runtime-dom esm",
+    "build": "node scripts/build.js",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "devDependencies": {
+    "@types/node": "^26.1.2",
     "esbuild": "^0.23.1",
+    "jsdom": "^30.0.0",
     "minimist": "^1.2.8",
-    "typescript": "^5.5.4"
+    "typescript": "^5.5.4",
+    "vitest": "^4.1.10"
   }
 }

@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8" />
+    <title>mini-vue test</title>
+</head>
+
+<body>
+    <div id="app"></div>
+
+    <script type="module">
+        import {
+            createApp,
+            ref
+        } from "./packages/runtime-dom/dist/runtime-dom.js";
+
+        const App = {
+            template: `
+        <div>
+          <p>count: {{ count }}</p>
+          <button @click="increment">增加</button>
+        </div>
+      `,
+
+            setup() {
+                const count = ref(0);
+
+                const increment = () => {
+                    count.value++;
+                };
+
+                return {
+                    count,
+                    increment
+                };
+            }
+        };
+
+        createApp(App).mount("#app");
+    </script>
+</body>
+
+</html>
