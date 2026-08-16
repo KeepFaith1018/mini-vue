@@ -1,9 +1,17 @@
-/* 编译主要分为三步
- 1. 将模板转换成AST语法树
- 2. 转化生成codegennode
- 3. 转化生成render方法
-**/
+export * from "./ast";
+export * from "./parse";
+export * from "./transform";
+export * from "./codegen";
 
-export function prase(template) {
-    
+import { baseParse } from "./parse";
+import { transform } from "./transform";
+import { generate } from "./codegen";
+
+export function baseCompile(template: string) {
+  const ast = baseParse(template);
+  transform(ast);
+  return { ast, ...generate(ast) };
 }
+
+// 兼容项目早期拼写，新的代码应使用 baseParse。
+export { baseParse as prase } from "./parse";
