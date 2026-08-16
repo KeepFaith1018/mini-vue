@@ -1,4 +1,9 @@
-import { proxyRefs, reactive } from "@vue/reactivity";
+import {
+  proxyRefs,
+  reactive,
+  shallowReactive,
+  shallowReadonly,
+} from "@vue/reactivity";
 import { hasOwn, isFunction, ShapeFlags } from "@vue/share";
 
 /**
@@ -24,8 +29,12 @@ export function createComponentInstance(vnode, parent) {
     exposed: null, // 暴露给外部的属性
     parent, // 父组件
     // 提供给子组件的属性
-    provides: parent ? parent.provides : Object.create(null), // 没有原型
+    provides: parent
+      ? parent.provides
+      : vnode.appContext?.provides || Object.create(null),
     ctx: {} as any, // keepalive中缓存的dom
+    effect: null,
+    appContext: vnode.appContext || parent?.appContext || null,
   };
   return instance;
 }
@@ -51,7 +60,7 @@ const initProps = (instance, rawProps) => {
     for (let key in rawProps) {
       const value = rawProps[key];
       // TODO: value string | number 校验
-      if (key in propsOptions) {
+      if (key in propsOptions || /^on[A-Z]/.test(key)) {
         // TODO: 不需要使用深度响应式，组件不能修改props，应该用shallowReactive,
         props[key] = value;
       } else {
@@ -59,7 +68,7 @@ const initProps = (instance, rawProps) => {
       }
     }
   }
-  instance.props = reactive(props);
+  instance.props = shallowReactive(props);
   instance.attrs = attrs;
 };
 
@@ -71,8 +80,6 @@ const publicProperty = {
 
 const handler = {
   get(target, key) {
-    console.log("读取", key);
-
     const { data, props, setupState } = target;
     if (data && hasOwn(data, key)) {
       return data[key];
@@ -88,8 +95,6 @@ const handler = {
     }
   },
   set(target, key, value) {
-    console.log("设置", key, value);
-
     const { data, props, setupState } = target;
     if (data && hasOwn(data, key)) {
       data[key] = value;
@@ -137,14 +142,17 @@ export function setupComponent(instance) {
     };
 
     setCurrentInstance(instance);
-    const setupResult = setup(instance.proxy, setupContext);
-    console.log("setup end");
-    unsetCurrentInstance();
+    let setupResult;
+    try {
+      setupResult = setup(shallowReadonly(instance.props), setupContext);
+    } finally {
+      unsetCurrentInstance();
+    }
 
     if (isFunction(setupResult)) {
       instance.render = setupResult;
     } else {
-      instance.setupState = proxyRefs(setupResult);
+      instance.setupState = proxyRefs(setupResult || {});
     }
   }
 
@@ -157,11 +165,19 @@ export function setupComponent(instance) {
 
   if (!instance.render) {
     // setup优先，没有render，用自己的
-    instance.render = render;
+    instance.render =
+      render ||
+      (compiler && vnode.type.template
+        ? compiler(vnode.type.template)
+        : undefined);
   }
 }
 
 export let currentInstance = null;
+let compiler;
+export const registerRuntimeCompiler = (_compiler) => {
+  compiler = _compiler;
+};
 
 export const getCurrentInstance = () => currentInstance;
 export const setCurrentInstance = (instance) => {

@@ -1,12 +1,18 @@
 import { PatchFlags, ShapeFlags } from "@vue/share";
-import { Text, isSameVnode, Fragment, createVnode } from "./createVnode";
+import {
+  Text,
+  isSameVnode,
+  Fragment,
+  normalizeVNode,
+} from "./createVnode";
 import { h } from "./h";
 import { getSequence } from "./seq";
 import { ReactiveEffect } from "@vue/reactivity";
 import { queueJob } from "./scheduler";
 import { createComponentInstance, setupComponent } from "./component";
 import { invokerArray } from "./apiLifeCycle";
-import { isKeepAlive } from "@vue/runtime-dom";
+import { isKeepAlive } from "./components/KeepAlive";
+import { createAppAPI } from "./apiCreateApp";
 export function createRenderer(renderOptions) {
   // core中不关心如何进行的渲染
   const {
@@ -24,19 +30,15 @@ export function createRenderer(renderOptions) {
   const normalize = (child) => {
     if (Array.isArray(child)) {
       for (let i = 0; i < child.length; i++) {
-        if (typeof child[i] === "string" || typeof child[i] === "number") {
-          child[i] = normalize(child[i]);
-        }
+        child[i] = normalizeVNode(child[i]);
       }
-    } else if (typeof child === "string") {
-      child = createVnode(Text, null, String(child));
     }
     return child;
   };
   const mountChildren = (children, container, parentComponent) => {
     normalize(children);
     for (let i = 0; i < children.length; i++) {
-      patch(null, children[i], container, parentComponent);
+      patch(null, children[i], container, null, parentComponent);
     }
   };
 
@@ -133,10 +135,10 @@ export function createRenderer(renderOptions) {
         }
 
         const subTree = renderComponent(instance);
-        console.log("effect挂载组件", instance);
         patch(null, subTree, container, anchor, instance);
         instance.isMounted = true;
         instance.subTree = subTree;
+        instance.vnode.el = subTree.el;
 
         if (m) {
           invokerArray(m);
@@ -146,8 +148,6 @@ export function createRenderer(renderOptions) {
         const { next, bu, u } = instance;
 
         if (next) {
-          console.log("属性和插槽更新", next);
-
           // 更新属性和插槽
           updateComponentPreRender(instance, next);
           // props slots
@@ -157,10 +157,9 @@ export function createRenderer(renderOptions) {
           invokerArray(bu);
         }
         const subTree = renderComponent(instance);
-        console.log("effect更新组件", subTree);
-
         patch(instance.subTree, subTree, container, anchor, instance);
         instance.subTree = subTree;
+        instance.vnode.el = subTree.el;
 
         if (u) {
           invokerArray(u);
@@ -170,6 +169,7 @@ export function createRenderer(renderOptions) {
     const effect = new ReactiveEffect(componentUpdateFn, () =>
       queueJob(update)
     );
+    instance.effect = effect;
 
     const update = (instance.update = () => effect.run());
     // 默认调用一次
@@ -206,12 +206,11 @@ export function createRenderer(renderOptions) {
     // TODO: 出现意外的报错，当测试异步组件没错误重试时，preProps为undifined，所以加上{}
     // 先通过长度判断，然后遍历判断key
     let nKeys = Object.keys(nextProps);
-    if (nKeys.length == Object.keys(preProps).length) {
-      for (let i = 0; i < nKeys.length; i++) {
-        const key = nKeys[i];
-        if (nextProps[key] !== preProps[key]) {
-          return true;
-        }
+    if (nKeys.length !== Object.keys(preProps).length) return true;
+    for (let i = 0; i < nKeys.length; i++) {
+      const key = nKeys[i];
+      if (nextProps[key] !== preProps[key]) {
+        return true;
       }
     }
     return false;
@@ -246,6 +245,9 @@ export function createRenderer(renderOptions) {
     if (shouldComponentUpdate(oldVnode, newVnode)) {
       instance.next = newVnode;
       instance.update();
+    } else {
+      newVnode.el = oldVnode.el;
+      instance.vnode = newVnode;
     }
 
     // vue3.2后，逻辑合并
@@ -295,7 +297,7 @@ export function createRenderer(renderOptions) {
     // old [a,b,c,d] new [a,b,c]       index = 0 e1=3 e2=2
     while (index <= e1 && index <= e2) {
       if (isSameVnode(oldChildren[index], newChildren[index])) {
-        patch(oldChildren[index], newChildren[index], el);
+        patch(oldChildren[index], newChildren[index], el, null, parentComponent);
       } else {
         break;
       }
@@ -304,7 +306,7 @@ export function createRenderer(renderOptions) {
     // 从尾开始比较
     while (index <= e1 && index <= e2) {
       if (isSameVnode(oldChildren[e1], newChildren[e2])) {
-        patch(oldChildren[e1], newChildren[e2], el);
+        patch(oldChildren[e1], newChildren[e2], el, null, parentComponent);
       } else {
         break;
       }
@@ -325,7 +327,7 @@ export function createRenderer(renderOptions) {
         let nextPos = e2 + 1;
         let anchor = newChildren[nextPos]?.el;
         while (index <= e2) {
-          patch(null, newChildren[index], el, anchor);
+          patch(null, newChildren[index], el, anchor, parentComponent);
           index++;
         }
       }
@@ -375,7 +377,7 @@ export function createRenderer(renderOptions) {
           // i可能出现0的情况，通过+1来避免歧义，0代表新创建的，没有比对过的
           newIndexToOldMapIndex[newIndex - s2] = i + 1;
           // 比较差异，更新属性和儿子
-          patch(oldChild, newChildren[newIndex], el);
+          patch(oldChild, newChildren[newIndex], el, null, parentComponent);
         }
       }
 
@@ -392,9 +394,9 @@ export function createRenderer(renderOptions) {
 
         if (!vnode.el) {
           // 如果没有el,需要先创建一个,在插入
-          patch(null, vnode, el, anchor);
+          patch(null, vnode, el, anchor, parentComponent);
         } else {
-          if (j == i) {
+          if (j >= 0 && increasingSequence[j] === i) {
             j--;
           } else {
             hostInsert(vnode.el, el, anchor);
@@ -454,7 +456,7 @@ export function createRenderer(renderOptions) {
     // 新的是文本，老的是数组或着文本,
     if (shapeFlag & ShapeFlags.TEXT_CHILDREN) {
       // 老的是数组，需要先进行清空
-      if (shapeFlag & ShapeFlags.ARRAY_CHILDREN) {
+      if (preShapeFlag & ShapeFlags.ARRAY_CHILDREN) {
         unmountChildren(oldChildren, parentComponent);
       }
       // 替换创建新文本
@@ -505,7 +507,7 @@ export function createRenderer(renderOptions) {
     if (patchFlag > 0) {
       if (patchFlag & PatchFlags.FULL_PROPS) {
         // element props contain dynamic keys, full diff needed
-        patchProps(el, oldProps, newProps, parentComponent);
+        patchProps(oldProps, newProps, el, parentComponent);
       } else {
         // class
         if (patchFlag & PatchFlags.CLASS) {
@@ -612,13 +614,17 @@ export function createRenderer(renderOptions) {
   const unmount = (vnode, parentComponent) => {
     if (vnode.type == Fragment) {
       unmountChildren(vnode.children, parentComponent);
-    } else if (vnode.shapFlag & ShapeFlags.COMPONENT_KEPT_ALIVE) {
+    } else if (vnode.shapeFlag & ShapeFlags.COMPONENT_SHOULD_KEEP_ALIVE) {
       // keep组件失活的逻辑
       parentComponent.ctx.deactivate(vnode);
     } else if (vnode.shapeFlag & ShapeFlags.TELEPORT) {
-      vnode.type.remove(vnode, unmount);
+      vnode.type.remove(vnode, unmountChildren);
     } else if (vnode.shapeFlag & ShapeFlags.COMPONENT) {
-      unmount(vnode.component.subTree, parentComponent);
+      const instance = vnode.component;
+      if (instance.bum) invokerArray(instance.bum);
+      instance.effect?.stop();
+      unmount(instance.subTree, instance);
+      if (instance.um) invokerArray(instance.um);
     } else {
       hostRemove(vnode.el);
     }
@@ -634,6 +640,7 @@ export function createRenderer(renderOptions) {
       // 不是第一次渲染，vnode为null，表示将之前的虚拟节点删除
       if (container._vnode) {
         unmount(container._vnode, null);
+        container._vnode = null;
       }
     } else {
       patch(container._vnode || null, vnode, container);
@@ -642,5 +649,6 @@ export function createRenderer(renderOptions) {
   };
   return {
     render,
+    createApp: createAppAPI(render),
   };
 }

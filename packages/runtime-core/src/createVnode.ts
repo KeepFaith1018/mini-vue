@@ -31,22 +31,33 @@ export function createVnode(type, props, children?, patchFlag?) {
     el: null, // 虚拟节点对应的真实节点
     shapeFlag,
     patchFlag,
+    component: null,
+    appContext: null,
   };
   // 收集动态节点
   if (currentBlock && patchFlag > 0) {
     currentBlock.push(vnode);
   }
-  if (children) {
+  if (children != null) {
     if (Array.isArray(children)) {
       vnode.shapeFlag |= ShapeFlags.ARRAY_CHILDREN;
     } else if (isObject(children)) {
       vnode.shapeFlag |= ShapeFlags.SLOTS_CHILDREN; // 组件的孩子 插槽
     } else {
-      children = String(children);
+      vnode.children = String(children);
       vnode.shapeFlag |= ShapeFlags.TEXT_CHILDREN;
     }
   }
   return vnode;
+}
+
+export function normalizeVNode(child) {
+  if (isVnode(child)) return child;
+  if (Array.isArray(child)) return createVnode(Fragment, null, child);
+  if (child == null || typeof child === "boolean") {
+    return createVnode(Text, null, "");
+  }
+  return createVnode(Text, null, String(child));
 }
 // 用于收集动态节点
 let currentBlock = null;

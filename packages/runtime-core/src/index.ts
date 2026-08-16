@@ -8,3 +8,5 @@ export * from "./apiProvide";
 export * from "./components/Teleport";
 export * from "./components/KeepAlive";
 export * from "./defineAsyncComponent";
+export * from "./scheduler";
+export * from "./apiCreateApp";

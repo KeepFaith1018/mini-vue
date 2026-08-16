@@ -1,24 +1,54 @@
-// 调度方法，实现组件的异步状态更新
-
-const queue = []; // 缓存当前要执行的队列
-const resolvePromise = Promise.resolve();
+const queue: Function[] = [];
+const pendingPreFlushCbs: Function[] = [];
+const pendingPostFlushCbs: Function[] = [];
+const resolvedPromise = Promise.resolve();
+let currentFlushPromise: Promise<void> | null = null;
 let isFlushing = false;
 
-export function queueJob(job) {
+function queueCb(cb: Function, pendingQueue: Function[]) {
+  if (!pendingQueue.includes(cb)) pendingQueue.push(cb);
+  queueFlush();
+}
+
+export function queueJob(job: Function) {
   if (!queue.includes(job)) {
     queue.push(job);
-  }
-  if (!isFlushing) {
-    isFlushing = true;
-    resolvePromise.then(() => {
-      isFlushing = false;
-      const copy = queue.slice(0);
-      queue.length = 0;
-      copy.forEach((fn) => {
-        fn();
-      });
-      copy.length = 0;
-    });
+    queueFlush();
   }
 }
-// 通过事件循环机制， 先是宏任务，在走微任务，把job放在微任务里
+
+export const queuePreFlushCb = (cb: Function) =>
+  queueCb(cb, pendingPreFlushCbs);
+export const queuePostFlushCb = (cb: Function) =>
+  queueCb(cb, pendingPostFlushCbs);
+
+function flushCbs(cbs: Function[]) {
+  for (const cb of [...new Set(cbs)]) cb();
+  cbs.length = 0;
+}
+
+function queueFlush() {
+  if (!isFlushing) {
+    isFlushing = true;
+    currentFlushPromise = resolvedPromise.then(flushJobs);
+  }
+}
+
+function flushJobs() {
+  try {
+    flushCbs(pendingPreFlushCbs);
+    for (let job; (job = queue.shift()); ) job();
+    flushCbs(pendingPostFlushCbs);
+  } finally {
+    isFlushing = false;
+    currentFlushPromise = null;
+    if (queue.length || pendingPreFlushCbs.length || pendingPostFlushCbs.length) {
+      queueFlush();
+    }
+  }
+}
+
+export function nextTick<T = void>(fn?: () => T): Promise<T | void> {
+  const promise = currentFlushPromise || resolvedPromise;
+  return fn ? promise.then(fn) : promise;
+}

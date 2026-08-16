@@ -10,24 +10,32 @@ export const Teleport = {
         newVnode.props.to
       ));
       if (target) {
-        mountChildren(newVnode.children, target);
+        mountChildren(newVnode.children, target, parentComponent);
       }
     } else {
       // 先更新子节点
-      patchChildren(oldVnode, newVnode, newVnode.target, parentComponent);
+      newVnode.target = oldVnode.target;
+      patchChildren(
+        oldVnode,
+        newVnode,
+        newVnode.target,
+        anchor,
+        parentComponent
+      );
       // 将子节点移动到对应的位置
       if (newVnode.props.to !== oldVnode.props.to) {
         const nextTarget = document.querySelector(newVnode.props.to);
         newVnode.children.forEach((child) => move(child, nextTarget, anchor));
+        newVnode.target = nextTarget;
       }
     }
   },
   remove(vnode, unmountChildren) {
     const { shapeFlag, children } = vnode;
     if (shapeFlag & ShapeFlags.ARRAY_CHILDREN) {
-      unmountChildren(children);
+      unmountChildren(children, null);
     }
   },
 };
 
-export const isTeleport = (value) => value._isTeleport;
+export const isTeleport = (value) => !!value?._isTeleport;

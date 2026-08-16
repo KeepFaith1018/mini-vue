@@ -17,14 +17,18 @@ export function defineAsyncComponent(options) {
         onError,
       } = options;
       const loaded = ref(false);
-      const error = ref(false); // 超时
+      const error = ref(null); // 加载错误
       const loading = ref(false); // 加载
       let comp = null;
+      let timeoutTimer = null;
 
       let loadingTimer = null;
-      loadingTimer = setTimeout(() => {
-        loading.value = true;
-      }, delay);
+      if (delay == null || delay === 0) loading.value = true;
+      else {
+        loadingTimer = setTimeout(() => {
+          loading.value = true;
+        }, delay);
+      }
 
       let attempts = 0;
       function loadFunc() {
@@ -46,21 +50,24 @@ export function defineAsyncComponent(options) {
 
       loadFunc()
         .then((value) => {
-          comp = value;
+          comp = value?.default || value;
           loaded.value = true;
         })
         .catch((err) => {
           console.error(err);
 
-          error.value = true;
+          error.value = err;
         })
         .finally(() => {
           loading.value = false;
           clearTimeout(loadingTimer);
+          clearTimeout(timeoutTimer);
         });
       if (timeout) {
-        setTimeout(() => {
-          error.value = true;
+        timeoutTimer = setTimeout(() => {
+          error.value = new Error(
+            `Async component timed out after ${timeout}ms.`
+          );
         }, timeout);
       }
       const defaultComponent = h("div", { a: 1 }, "moren");
@@ -69,7 +76,7 @@ export function defineAsyncComponent(options) {
           return h(comp);
         } else if (error.value && errorComponent) {
           return h(errorComponent);
-        } else if ((loading.value, loadingComponent)) {
+        } else if (loading.value && loadingComponent) {
           return h(loadingComponent);
         } else {
           return defaultComponent;

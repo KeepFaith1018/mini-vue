@@ -3,7 +3,7 @@ import { onMounted, onUpdated } from "../apiLifeCycle";
 import { getCurrentInstance } from "../component";
 
 export const KeepAlive = {
-  is_keepAlive: true,
+  _isKeepAlive: true,
   props: {
     // LRU缓存算法,将最近最少使用的移除
     max: Number,
@@ -17,7 +17,7 @@ export const KeepAlive = {
     const cache = new Map();
     let pendingCacheKey = null;
     const instance = getCurrentInstance();
-    const { max } = this.props;
+    const { max } = proxy;
     const cacheSubTree = () => {
       cache.set(pendingCacheKey, instance.subTree);
     };
@@ -42,6 +42,7 @@ export const KeepAlive = {
     function pruneCacheEntry(key) {
       keys.delete(key);
       const cacheVNode = cache.get(key);
+      cache.delete(key);
       unmount(cacheVNode);
     }
 
