@@ -10,6 +10,7 @@ import {
   render,
   Teleport,
 } from "./index";
+import type { Data } from "./index";
 
 describe("runtime-dom", () => {
   let container: HTMLDivElement;
@@ -50,8 +51,9 @@ describe("runtime-dom", () => {
         onUnmounted(unmounted);
         return { count };
       },
-      render() {
-        return h("button", null, this.count);
+      // 组件渲染函数里的 this 是实例代理(proxy),mini-vue 的代理暴露的是 Data 字段
+      render(this: Data) {
+        return h("button", null, this.count as number);
       },
     };
     const app = createApp(App);

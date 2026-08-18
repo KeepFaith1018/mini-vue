@@ -4,6 +4,7 @@ import { patchAttr } from "./modules/patchAttr";
 import { patchClass } from "./modules/patchClass";
 import { patchEvent } from "./modules/patchEvent";
 import { patchStyle } from "./modules/patchStyle";
+import type { RendererElement } from "@vue/runtime-core";
 
 /**
  * 处理属性，更新旧dom上的属性，为新值
@@ -13,11 +14,21 @@ import { patchStyle } from "./modules/patchStyle";
  * @param nextValue new
  * @returns
  */
-export default function patchProp(el: HTMLElement, key, preValue, nextValue) {
+export default function patchProp(
+  el: RendererElement,
+  key: string,
+  preValue: unknown,
+  nextValue: unknown
+) {
   if (key === "class") {
     return patchClass(el, nextValue);
   } else if (key === "style") {
-    return patchStyle(el, preValue, nextValue);
+    // 走到这里 preValue/nextValue 都是样式对象,按模块的契约断言
+    return patchStyle(
+      el,
+      preValue as Record<string, unknown> | null,
+      nextValue as Record<string, unknown>
+    );
   } else if (/^on[^a-z]/.test(key)) {
     // 正则匹配事件，一般都是onClick这种
     return patchEvent(el, key, nextValue);
