@@ -1,13 +1,32 @@
-import { createRoot, NodeTypes } from "./ast";
+import {
+  createRoot,
+  NodeTypes,
+  type ElementNode,
+  type InterpolationNode,
+  type PropNode,
+  type RootNode,
+  type TemplateChildNode,
+  type TextNode,
+} from "./ast";
 
-export function baseParse(content: string) {
+/** 解析上下文:剩余未解析的模板字符串 */
+export interface ParserContext {
+  source: string;
+}
+
+export function baseParse(content: string): RootNode {
   return createRoot(parseChildren({ source: content }, []));
 }
 
-function parseChildren(context, ancestors) {
-  const nodes = [];
+function parseChildren(
+  context: ParserContext,
+  ancestors: ElementNode[]
+): TemplateChildNode[] {
+  // 空数组字面量会推导成 never[],必须显式标注
+  const nodes: TemplateChildNode[] = [];
   while (!isEnd(context, ancestors)) {
-    let node;
+    // 可变变量先标注类型再赋值(和第一课的 let cleanup 同一课)
+    let node: TemplateChildNode;
     if (context.source.startsWith("{{")) node = parseInterpolation(context);
     else if (context.source[0] === "<" && /[a-z]/i.test(context.source[1])) {
       node = parseElement(context, ancestors);
@@ -17,10 +36,11 @@ function parseChildren(context, ancestors) {
   return nodes;
 }
 
-function parseInterpolation(context) {
+function parseInterpolation(context: ParserContext): InterpolationNode {
   advanceBy(context, 2);
   const closeIndex = context.source.indexOf("}}");
-  if (closeIndex < 0) throw new Error("Interpolation is missing closing delimiter.");
+  if (closeIndex < 0)
+    throw new Error("Interpolation is missing closing delimiter.");
   const content = context.source.slice(0, closeIndex).trim();
   advanceBy(context, closeIndex + 2);
   return {
@@ -29,7 +49,10 @@ function parseInterpolation(context) {
   };
 }
 
-function parseElement(context, ancestors) {
+function parseElement(
+  context: ParserContext,
+  ancestors: ElementNode[]
+): ElementNode {
   const element = parseTag(context, false);
   if (element.isSelfClosing) return element;
   ancestors.push(element);
@@ -42,7 +65,7 @@ function parseElement(context, ancestors) {
   return element;
 }
 
-function parseTag(context, isEnd) {
+function parseTag(context: ParserContext, isEnd: boolean): ElementNode {
   const match = /^<\/?([a-z][^\t\r\n\f />]*)/i.exec(context.source);
   if (!match) throw new Error("Invalid tag.");
   const tag = match[1];
@@ -60,19 +83,36 @@ function parseTag(context, isEnd) {
   };
 }
 
-function parseAttributes(context) {
-  const props = [];
-  while (context.source.length && !context.source.startsWith(">") && !context.source.startsWith("/>")) {
-    const match = /^([^\t\r\n\f />=]+)(?:\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\t\r\n\f >]+)))?/.exec(context.source);
+function parseAttributes(context: ParserContext): PropNode[] {
+  const props: PropNode[] = [];
+  while (
+    context.source.length &&
+    !context.source.startsWith(">") &&
+    !context.source.startsWith("/>")
+  ) {
+    const match =
+      /^([^\t\r\n\f />=]+)(?:\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\t\r\n\f >]+)))?/.exec(
+        context.source
+      );
     if (!match) throw new Error("Invalid attribute.");
     const name = match[1];
     const value = match[2] ?? match[3] ?? match[4] ?? "";
     advanceBy(context, match[0].length);
     advanceSpaces(context);
     if (name.startsWith(":") || name.startsWith("v-bind:")) {
-      props.push({ type: NodeTypes.DIRECTIVE, name: "bind", arg: name.replace(/^:|^v-bind:/, ""), exp: value });
+      props.push({
+        type: NodeTypes.DIRECTIVE,
+        name: "bind",
+        arg: name.replace(/^:|^v-bind:/, ""),
+        exp: value,
+      });
     } else if (name.startsWith("@") || name.startsWith("v-on:")) {
-      props.push({ type: NodeTypes.DIRECTIVE, name: "on", arg: name.replace(/^@|^v-on:/, ""), exp: value });
+      props.push({
+        type: NodeTypes.DIRECTIVE,
+        name: "on",
+        arg: name.replace(/^@|^v-on:/, ""),
+        exp: value,
+      });
     } else {
       props.push({ type: NodeTypes.ATTRIBUTE, name, value });
     }
@@ -80,7 +120,7 @@ function parseAttributes(context) {
   return props;
 }
 
-function parseText(context) {
+function parseText(context: ParserContext): TextNode {
   let endIndex = context.source.length;
   for (const token of ["<", "{{"]) {
     const index = context.source.indexOf(token);
@@ -92,7 +132,7 @@ function parseText(context) {
   return { type: NodeTypes.TEXT, content };
 }
 
-function isEnd(context, ancestors) {
+function isEnd(context: ParserContext, ancestors: ElementNode[]): boolean {
   if (!context.source) return true;
   if (context.source.startsWith("</")) {
     for (let i = ancestors.length - 1; i >= 0; i--) {
@@ -102,9 +142,9 @@ function isEnd(context, ancestors) {
   return false;
 }
 
-const advanceBy = (context, count) =>
+const advanceBy = (context: ParserContext, count: number): string =>
   (context.source = context.source.slice(count));
-const advanceSpaces = (context) => {
+const advanceSpaces = (context: ParserContext): void => {
   const match = /^[\t\r\n\f ]+/.exec(context.source);
   if (match) advanceBy(context, match[0].length);
 };

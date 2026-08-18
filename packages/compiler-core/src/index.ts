@@ -6,8 +6,12 @@ export * from "./codegen";
 import { baseParse } from "./parse";
 import { transform } from "./transform";
 import { generate } from "./codegen";
+import type { RootNode } from "./ast";
 
-export function baseCompile(template: string) {
+export function baseCompile(template: string): {
+  ast: RootNode;
+  code: string;
+} {
   const ast = baseParse(template);
   transform(ast);
   return { ast, ...generate(ast) };
