@@ -2,6 +2,8 @@ import {
   currentInstance,
   setCurrentInstance,
   unsetCurrentInstance,
+  type ComponentInstance,
+  type HookFn,
 } from "./component";
 
 export const enum LifeCycle {
@@ -14,8 +16,12 @@ export const enum LifeCycle {
 }
 // 组件是可以嵌套的，所以一个类型，有多个函数
 // bm -》[fn(),fn()]
-function createHook(type) {
-  return (hook, target = currentInstance) => {
+// 【枚举做索引】LifeCycle 的取值与 ComponentInstance 的钩子字段一一对应,所以能 target[type] 索引
+function createHook(type: LifeCycle) {
+  return (
+    hook: HookFn,
+    target: ComponentInstance | null = currentInstance
+  ) => {
     if (target) {
       // 当前实例是在组件中运行的
       const hooks = target[type] || (target[type] = []);
@@ -39,7 +45,7 @@ export const onUpdated = createHook(LifeCycle.UPDATED);
 export const onBeforeUnmount = createHook(LifeCycle.BEFORE_UNMOUNT);
 export const onUnmounted = createHook(LifeCycle.UNMOUNTED);
 
-export function invokerArray(fns) {
+export function invokerArray(fns: HookFn[]): void {
   for (let i = 0; i < fns.length; i++) {
     fns[i]();
   }

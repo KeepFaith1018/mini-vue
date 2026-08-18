@@ -7,12 +7,14 @@
 
 // 来实现这个算法
 
-export function getSequence(arr: number[]) {
+export function getSequence(arr: number[]): number[] {
   const length = arr.length;
   const result = [0]; // 记录的是arr中的索引
   const p = result.slice(0); // 用于记录前驱节点索引
   // 二分查找
-  let start, end, middle;
+  let start: number,
+    end: number,
+    middle: number;
 
   for (let i = 0; i < length; i++) {
     let arrI = arr[i];
