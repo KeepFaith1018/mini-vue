@@ -205,6 +205,8 @@ const handler: ProxyHandler<ComponentInstance> = {
     if (getter) {
       return getter(target);
     }
+    // 无匹配字段,与原逻辑一致落到 undefined
+    return undefined;
   },
   set(target, key, value) {
     // 符号 key 不会命中任何字段,与原逻辑一致直接放行
